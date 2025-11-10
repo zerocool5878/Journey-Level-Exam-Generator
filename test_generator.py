@@ -13,6 +13,15 @@ from reportlab.lib.utils import ImageReader
 from PIL import Image, ImageTk
 import shutil
 from reportlab.lib.units import inch
+from threading import Thread
+
+# Import auto-updater functions
+try:
+    from auto_updater import manual_check_for_updates, startup_update_check
+    AUTO_UPDATE_AVAILABLE = True
+except ImportError:
+    print("Auto-updater not available")
+    AUTO_UPDATE_AVAILABLE = False
 
 class TestGeneratorApp:
     def __init__(self, root):
@@ -28,6 +37,9 @@ class TestGeneratorApp:
         except Exception as e:
             print(f"Could not load icon: {e}")
         
+        # Create menu bar
+        self.create_menu()
+        
         # Initialize database
         self.init_database()
         
@@ -39,6 +51,14 @@ class TestGeneratorApp:
         
         # Fix existing image paths in database
         self.fix_image_paths()
+        
+        # Check for updates on startup (after a delay to let UI load)
+        if AUTO_UPDATE_AVAILABLE:
+            self.root.after(3000, self.startup_update_check)  # Check after 3 seconds
+    
+    def startup_update_check(self):
+        """Check for updates on startup"""
+        Thread(target=startup_update_check, daemon=True).start()
     
     def fix_image_paths(self):
         """Fix image paths in database to include images/ prefix"""
@@ -81,6 +101,82 @@ class TestGeneratorApp:
         
         # Return the original attempt if nothing else works
         return full_path
+    
+    def create_menu(self):
+        """Create application menu bar"""
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+        
+        # File menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.root.quit, accelerator="Ctrl+Q")
+        
+        # Tools menu
+        tools_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Tools", menu=tools_menu)
+        tools_menu.add_command(label="Backup Database", command=self.backup_database)
+        tools_menu.add_command(label="Import from Excel", command=self.import_from_excel)
+        
+        # Help menu
+        help_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Help", menu=help_menu)
+        
+        if AUTO_UPDATE_AVAILABLE:
+            help_menu.add_command(label="Check for Updates", command=self.check_for_updates)
+            help_menu.add_separator()
+        
+        help_menu.add_command(label="About", command=self.show_about)
+    
+    def check_for_updates(self):
+        """Check for application updates"""
+        if AUTO_UPDATE_AVAILABLE:
+            Thread(target=manual_check_for_updates, daemon=True).start()
+        else:
+            messagebox.showinfo("Updates", "Auto-update feature not available.")
+    
+    def show_about(self):
+        """Show about dialog"""
+        about_text = """Journey-Level Exam Generator v1.0.0
+
+Professional desktop application for generating journey-level proficiency exams.
+
+Features:
+• Manage up to 250 questions with categories
+• Image support for questions
+• Multiple choice format (2-4 options)
+• Professional PDF generation
+• Excel import functionality
+• Configurable category distribution
+
+Built with ⚡ for professional exam generation.
+
+© 2025 - Licensed under MIT License
+GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
+        
+        messagebox.showinfo("About Journey-Level Exam Generator", about_text)
+    
+    def backup_database(self):
+        """Create a backup of the current database"""
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_filename = f"test_questions_backup_{timestamp}.db"
+            
+            # Choose backup location
+            backup_path = filedialog.asksaveasfilename(
+                title="Save Database Backup",
+                defaultextension=".db",
+                initialfilename=backup_filename,
+                filetypes=[("SQLite Database", "*.db"), ("All Files", "*.*")]
+            )
+            
+            if backup_path:
+                shutil.copy2('test_questions.db', backup_path)
+                messagebox.showinfo("Backup Complete", 
+                                  f"Database backed up successfully to:\n{backup_path}")
+        except Exception as e:
+            messagebox.showerror("Backup Failed", f"Error creating backup: {str(e)}")
     
     def init_database(self):
         """Initialize SQLite database with required tables and create images folder"""

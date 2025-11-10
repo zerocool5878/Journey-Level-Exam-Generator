@@ -32,6 +32,7 @@ def main():
         "--hidden-import=reportlab",            # Ensure reportlab is included
         "--hidden-import=pandas",               # Ensure pandas is included
         "--hidden-import=openpyxl",             # Ensure openpyxl is included
+        "--hidden-import=requests",             # Ensure requests is included
         "--clean",                              # Clean cache
         "test_generator.py"
     ]
