@@ -56,6 +56,12 @@ desktop.ini
 # User data files that shouldn't be shared
 q_pool.xlsx
 
+# Build artifacts
+build/
+dist/
+*.spec
+release/*.exe
+
 # Images folder - include structure but not user images
 images/*
 !images/.gitkeep
