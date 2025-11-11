@@ -646,12 +646,37 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         
         # Select random questions for each category
         selected_questions = []
+        debug_info = []  # For debugging
+        
         for category, count in questions_per_category.items():
             if count > 0:
+                # First check how many questions are available in this category
+                cursor.execute("SELECT COUNT(*) FROM questions WHERE category = ?", (category,))
+                available = cursor.fetchone()[0]
+                
                 cursor.execute("SELECT question, answer, image_path, choice_a, choice_b, choice_c, choice_d FROM questions WHERE category = ? ORDER BY RANDOM() LIMIT ?", 
                              (category, count))
                 category_questions = cursor.fetchall()
                 selected_questions.extend([(q, a, category, img, ca, cb, cc, cd) for q, a, img, ca, cb, cc, cd in category_questions])
+                
+                debug_info.append(f"{category}: wanted {count}, available {available}, got {len(category_questions)}")
+        
+        # If we don't have enough questions, try to fill from other categories
+        if len(selected_questions) < total_questions:
+            shortage = total_questions - len(selected_questions)
+            
+            # Get additional questions from any category
+            cursor.execute("SELECT question, answer, image_path, choice_a, choice_b, choice_c, choice_d, category FROM questions ORDER BY RANDOM() LIMIT ?", 
+                         (shortage * 2,))  # Get extra to avoid duplicates
+            additional_questions = cursor.fetchall()
+            
+            # Add non-duplicate questions
+            existing_questions = {(q[0], q[1]) for q in selected_questions}  # (question, answer) pairs
+            
+            for q, a, img, ca, cb, cc, cd, cat in additional_questions:
+                if (q, a) not in existing_questions and len(selected_questions) < total_questions:
+                    selected_questions.append((q, a, cat, img, ca, cb, cc, cd))
+                    existing_questions.add((q, a))
         
         if len(selected_questions) < total_questions:
             messagebox.showwarning("Warning", f"Only {len(selected_questions)} questions available. Need {total_questions}")
