@@ -715,8 +715,11 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
                 cursor.execute("SELECT COUNT(*) FROM questions WHERE category = ?", (category,))
                 available = cursor.fetchone()[0]
                 
+                # Take all available questions if category has fewer than requested
+                actual_count = min(count, available)
+                
                 cursor.execute("SELECT question, answer, image_path, choice_a, choice_b, choice_c, choice_d FROM questions WHERE category = ? ORDER BY RANDOM() LIMIT ?", 
-                             (category, count))
+                             (category, actual_count))
                 category_questions = cursor.fetchall()
                 selected_questions.extend([(q, a, category, img, ca, cb, cc, cd) for q, a, img, ca, cb, cc, cd in category_questions])
                 
@@ -736,7 +739,7 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
             
             for q, a, img, ca, cb, cc, cd, cat in additional_questions:
                 if (q, a) not in existing_questions and len(selected_questions) < total_questions:
-                    selected_questions.append((q, a, cat, img, ca, cb, cc, cd))
+                    selected_questions.append((q, a, cat, img, ca, cb, cc, cd))  # Fixed parameter order: category before image
                     existing_questions.add((q, a))
         
         if len(selected_questions) < total_questions:
@@ -847,13 +850,31 @@ that best answers the question or completes the statement. Show all work.
         c.setFont("Helvetica", 12)
         c.drawString(50, height - 120, "Instructions: Correct answers are filled in.")
         
-        # Questions
-        y_position = height - 160
+        # Two column layout - same as main test
+        column_width = (width - 120) // 2  # Account for margins
+        left_column_x = 50
+        right_column_x = left_column_x + column_width + 20
+        left_y = height - 160
+        right_y = height - 160
+        
         c.setFont("Helvetica", 11)
         
+        # Process questions in two columns - fill left column completely first, then right column
+        total_questions = len(self.current_test['questions'])
+        use_right_column = False  # Start with left column
+        
         for i, (question, answer, category, image_path, choice_a, choice_b, choice_c, choice_d) in enumerate(self.current_test['questions'], 1):
+            # Use left column unless we've switched to right column
+            is_left_column = not use_right_column
+            
+            if is_left_column:
+                current_x = left_column_x
+                current_y = left_y
+            else:
+                current_x = right_column_x
+                current_y = right_y
             # Calculate space needed for this question
-            choices_count = sum([1 for c in [choice_a, choice_b, choice_c, choice_d] if c])
+            choices_count = sum([1 for choice in [choice_a, choice_b, choice_c, choice_d] if choice])
             image_height = 0
             
             # Check image size if present
@@ -864,102 +885,173 @@ that best answers the question or completes the statement. Show all work.
                         img = Image.open(full_image_path)
                         img_width, img_height = img.size
                         
-                        # Calculate scaled height
-                        max_img_width = 400
-                        max_img_height = 150
+                        # Scale image to fit column width
+                        max_img_width = column_width - 20
+                        max_img_height = 100
                         scale_w = max_img_width / img_width
                         scale_h = max_img_height / img_height
                         scale = min(scale_w, scale_h, 1.0)
                         image_height = int(img_height * scale)
                     except:
-                        image_height = 20  # Space for error message
+                        image_height = 20
             
-            # Calculate total space needed
-            space_needed = 40 + image_height + (choices_count * 18) + 40
+            # Calculate total space needed (accounting for wrapped answers and new spacing)
+            estimated_choice_lines = 0
+            for choice_text in [choice_a, choice_b, choice_c, choice_d]:
+                if choice_text:
+                    choice_length = len(f"a. {choice_text}")
+                    lines_needed = max(1, (choice_length // 40) + 1)  # Adjusted for balanced columns
+                    estimated_choice_lines += lines_needed
             
-            # Check if we need a new page
-            if y_position < space_needed:
+            space_needed = 45 + image_height + (estimated_choice_lines * 14) + 35  # Updated for new font and spacing
+            
+            # Check if left column has space, if not switch to right column
+            if is_left_column and left_y < space_needed and not use_right_column:
+                # Switch to right column if left column is full
+                use_right_column = True
+                is_left_column = False
+                current_x = right_column_x
+                current_y = right_y
+            
+            # Check if we need a new page (both columns full)
+            if current_y < space_needed:
                 c.showPage()
-                y_position = height - 50
-            # Question text
-            question_text = f"{i}. {question}"
-            # Handle long questions by wrapping text
-            if len(question_text) > 80:
-                lines = []
-                words = question_text.split()
-                current_line = words[0] if words else ""
+                # Reset header for new page
+                c.setFont("Helvetica-Bold", 16)
+                title_text = "ANSWER KEY (continued)"
+                title_width = c.stringWidth(title_text, "Helvetica-Bold", 16)
+                c.drawString((width - title_width) / 2, height - 40, title_text)
                 
-                for word in words[1:]:
-                    if len(current_line + " " + word) <= 80:
-                        current_line += " " + word
+                # Add Test ID to continuation page
+                c.setFont("Helvetica-Bold", 12)
+                id_text = f"Test ID: {self.current_test['id']}"
+                id_width = c.stringWidth(id_text, "Helvetica-Bold", 12)
+                c.drawString((width - id_width) / 2, height - 60, id_text)
+                
+                left_y = height - 90  # Adjusted for Test ID
+                right_y = height - 90  # Adjusted for Test ID
+                current_y = height - 90  # Adjusted for Test ID
+                use_right_column = False  # Reset to left column on new page
+                is_left_column = True
+                current_x = left_column_x
+                c.setFont("Helvetica", 11)  # Match updated font - regular but larger
+            # Draw question text
+            question_text = f"{i}. {question}"
+            
+            # Word wrap for column width (adjusted for balanced columns)
+            max_chars = 48 if column_width < 270 else 52
+            if len(question_text) > max_chars:
+                words = question_text.split()
+                lines = []
+                current_line = ""
+                
+                for word in words:
+                    if len(current_line + " " + word) <= max_chars:
+                        current_line += (" " if current_line else "") + word
                     else:
                         lines.append(current_line)
                         current_line = word
-                lines.append(current_line)
+                
+                if current_line:
+                    lines.append(current_line)
                 
                 for line in lines:
-                    c.drawString(50, y_position, line)
-                    y_position -= 15
+                    c.drawString(current_x, current_y, line)
+                    current_y -= 14  # Increased for better spacing with bold font
             else:
-                c.drawString(50, y_position, question_text)
-                y_position -= 15
+                c.drawString(current_x, current_y, question_text)
+                current_y -= 14  # Increased for better spacing with bold font
             
-            # Draw image if present (after question, before choices)
+            # Draw image if present
             if image_path:
                 full_image_path = self.get_image_full_path(image_path)
                 if full_image_path and os.path.exists(full_image_path):
                     try:
-                        # Load and resize image
                         img = Image.open(full_image_path)
                         img_width, img_height = img.size
                         
-                        # Scale image to fit
-                        max_img_width = 400
-                        max_img_height = 150
-                        
+                        # Scale image to fit column width
+                        max_img_width = column_width - 20
+                        max_img_height = 100
                         scale_w = max_img_width / img_width
                         scale_h = max_img_height / img_height
-                        scale = min(scale_w, scale_h, 1.0)  # Don't upscale
+                        scale = min(scale_w, scale_h, 1.0)
                         
                         new_width = int(img_width * scale)
                         new_height = int(img_height * scale)
                         
-                        # Center the image
-                        img_x = 50 + (400 - new_width) // 2
-                        img_y = y_position - new_height - 10
+                        # Center image in column
+                        img_x = current_x + (column_width - new_width) // 2
+                        img_y = current_y - new_height - 10
                         
                         c.drawInlineImage(full_image_path, img_x, img_y, width=new_width, height=new_height)
-                        y_position = img_y - 15  # Move down past image with spacing
+                        current_y = img_y - 10  # Continue after image
                         
                     except Exception as e:
-                        # If image fails to load, show error
                         print(f"Debug (Answer Key): Failed to load image {full_image_path}: {str(e)}")
-                        c.drawString(50, y_position - 15, f"[IMAGE: {os.path.basename(image_path)} - Could not load]")
-                        y_position -= 30
+                        c.drawString(current_x, current_y - 15, f"[Image: {os.path.basename(image_path)} - Error loading]")
+                        current_y -= 25
                 else:
-                    # Image path exists but file not found
                     print(f"Debug (Answer Key): Image path '{image_path}' not found")
-                    c.drawString(50, y_position - 15, f"[IMAGE: {os.path.basename(image_path)} - File not found]")
-                    y_position -= 30
+                    c.drawString(current_x, current_y - 15, f"[Image: {os.path.basename(image_path)} - Not found]")
+                    current_y -= 25
             
-            # Multiple choice options - only show choices with content
-            y_position -= 10
+            # Multiple choice options with proper column positioning
+            current_y -= 10
             choices = []
-            if choice_a: choices.append(('A', choice_a))
-            if choice_b: choices.append(('B', choice_b))
-            if choice_c: choices.append(('C', choice_c))
-            if choice_d: choices.append(('D', choice_d))
+            if choice_a: choices.append(('a', choice_a))
+            if choice_b: choices.append(('b', choice_b))
+            if choice_c: choices.append(('c', choice_c))
+            if choice_d: choices.append(('d', choice_d))
             
             for choice_letter, choice_text in choices:
-                # Add circle - filled if it's the correct answer, empty otherwise
-                if choice_letter == answer:
-                    c.circle(70, y_position + 5, 6, fill=1)  # Filled circle for correct answer
+                # Draw circle for choice - same size as test circles (radius 3)
+                if choice_letter.lower() == answer.lower():
+                    c.circle(current_x + 5, current_y + 3, 3, fill=1)  # Filled circle for correct answer
                 else:
-                    c.circle(70, y_position + 5, 6, fill=0)  # Empty circle
-                c.drawString(85, y_position, f"{choice_letter}) {choice_text}")
-                y_position -= 18
+                    c.circle(current_x + 5, current_y + 3, 3, fill=0)  # Empty circle
+                
+                # Word wrap the choice text
+                choice_with_letter = f"{choice_letter}. {choice_text}"
+                max_choice_chars = 40  # Adjusted for balanced column width
+                
+                if len(choice_with_letter) > max_choice_chars:
+                    # Split into words and wrap
+                    words = choice_with_letter.split()
+                    lines = []
+                    current_line = ""
+                    
+                    for word in words:
+                        if len(current_line + " " + word) <= max_choice_chars:
+                            current_line += (" " if current_line else "") + word
+                        else:
+                            if current_line:
+                                lines.append(current_line)
+                            current_line = word
+                    
+                    if current_line:
+                        lines.append(current_line)
+                    
+                    # Draw first line with circle
+                    c.drawString(current_x + 15, current_y, lines[0])
+                    current_y -= 14  # Increased line spacing
+                    
+                    # Draw remaining lines indented
+                    for line in lines[1:]:
+                        c.drawString(current_x + 15, current_y, line)
+                        current_y -= 14  # Increased line spacing
+                else:
+                    # Choice fits on one line
+                    c.drawString(current_x + 15, current_y, choice_with_letter)
+                    current_y -= 14  # Increased line spacing to match bold font
             
-            y_position -= 25  # More space between questions
+            current_y -= 35  # Further increased space between questions to match example
+            
+            # Update column positions
+            if is_left_column:
+                left_y = current_y
+            else:
+                right_y = current_y
         
         c.save()
     
@@ -1013,10 +1105,13 @@ that best answers the question or completes the statement. Show all work.
         
         c.setFont("Helvetica", 11)  # Regular font but larger size for darker appearance
         
-        # Process questions in two columns
+        # Process questions in two columns - fill left column completely first, then right column
+        total_questions = len(self.current_test['questions'])
+        use_right_column = False  # Start with left column
+        
         for i, (question, answer, category, image_path, choice_a, choice_b, choice_c, choice_d) in enumerate(self.current_test['questions'], 1):
-            # Determine which column to use (odd numbers left, even numbers right)
-            is_left_column = (i % 2 == 1)
+            # Use left column unless we've switched to right column
+            is_left_column = not use_right_column
             
             if is_left_column:
                 current_x = left_column_x
@@ -1057,7 +1152,15 @@ that best answers the question or completes the statement. Show all work.
             
             space_needed = 45 + image_height + (estimated_choice_lines * 14) + 35  # Updated for new font and spacing
             
-            # Check if we need a new page
+            # Check if left column has space, if not switch to right column
+            if is_left_column and left_y < space_needed and not use_right_column:
+                # Switch to right column if left column is full
+                use_right_column = True
+                is_left_column = False
+                current_x = right_column_x
+                current_y = right_y
+            
+            # Check if we need a new page (both columns full)
             if current_y < space_needed:
                 c.showPage()
                 # Reset header for new page
@@ -1075,6 +1178,9 @@ that best answers the question or completes the statement. Show all work.
                 left_y = height - 90  # Adjusted for Test ID
                 right_y = height - 90  # Adjusted for Test ID
                 current_y = height - 90  # Adjusted for Test ID
+                use_right_column = False  # Reset to left column on new page
+                is_left_column = True
+                current_x = left_column_x
                 c.setFont("Helvetica", 11)  # Match updated font - regular but larger
             
             # Draw question text
