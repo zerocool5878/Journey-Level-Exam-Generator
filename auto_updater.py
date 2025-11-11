@@ -240,9 +240,14 @@ def manual_check_for_updates():
     updater.check_for_updates(silent=False)
 
 def startup_update_check():
-    """Function to be called on application startup - blocking check with dialog"""
+    """Function to be called on application startup - blocking check with dialog only if update available"""
     updater = AutoUpdater()
-    return updater.check_for_updates(silent=False)
+    # Check silently first
+    has_update, release_data = updater.check_for_updates(silent=True)
+    # Only show dialog if update is available
+    if has_update:
+        updater.show_update_dialog(release_data)
+    return has_update, release_data
 
 if __name__ == "__main__":
     # Test the updater
