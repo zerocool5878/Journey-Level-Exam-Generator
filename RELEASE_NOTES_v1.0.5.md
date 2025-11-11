@@ -4,23 +4,17 @@
 
 ## 🔄 What's New in v1.0.5
 
-### 🚀 Fixed Auto-Update System
-- **Startup Update Check:** Auto-updater now checks for updates BEFORE main window opens
-- **Smart Prompts:** Users are only prompted when updates are available (no annoying "latest version" popups)
-- **Blocking Updates:** Update dialog prevents app startup until user decides to update or skip
-- **Clean User Flow:** Check → Prompt (if needed) → Update → Restart → Latest Version automatically
+### 🎯 Enhanced Auto-Update User Experience
+- **Smart Prompts Only:** Users are only prompted when updates are actually available
+- **No More Annoying Popups:** Eliminated "You're running the latest version" message at startup
+- **Silent Background Check:** Auto-updater checks silently and only interrupts when necessary
+- **Clean Startup Flow:** Application opens directly when no updates are available
 
-### 🎯 User Experience Improvements
-- **No More Delayed Notifications:** Eliminated confusing 3-second delayed update checks
-- **Always Latest Version:** Users always run the newest version after accepting updates
-- **Clear Update Process:** Simple, intuitive update flow that makes sense
-- **Development-Safe:** Auto-update only runs in .exe builds, not during development
-
-### 🔧 Technical Enhancements
-- **Pre-Startup Checking:** Moved update check from post-startup to pre-startup in main()
-- **Simplified Flow:** Removed delayed background update checking
-- **Better Error Handling:** Graceful fallback if update check fails
-- **Clean Code Structure:** Simplified imports and removed unnecessary complexity
+### 🚀 Technical Improvements
+- **Intelligent Update Logic:** Modified startup_update_check() to check silently first
+- **Conditional Dialogs:** Only shows update dialog when update is actually available
+- **Preserved Manual Checking:** Manual update checks still show status confirmation
+- **Better User Experience:** Professional, non-intrusive update system
 
 ## 🐛 Bug Fixes from v1.0.4
 - **Fixed:** Annoying "You're running the latest version" popup showing at every startup
@@ -43,6 +37,10 @@
 5. ✅ **USER CLICKS UPDATE:** Download → Install → Restart to new version
 6. ✅ **USER CLICKS SKIP:** Continue with current version
 
+## 💡 Key Improvement from v1.0.4
+
+The main enhancement in v1.0.5 is eliminating the annoying "You're running the latest version" popup that appeared every time users started the application when they were already on the current version. Now the auto-updater works intelligently in the background and only interrupts the user when there's actually something to update.
+
 ## 💾 Installation
 
 1. Download `Journey-Level-Exam-Generator.exe` from the release assets
@@ -59,7 +57,7 @@
 
 ## ⚡ Why This Update Matters
 
-This release **fixes the auto-update system** that wasn't working properly in previous versions. Now users will be automatically prompted for updates at startup and can always ensure they're running the latest version with all improvements and bug fixes.
+This release **perfects the auto-update user experience** by making it truly non-intrusive. Users on the current version no longer see unnecessary popup messages, while users with available updates are still properly notified. This creates a much more professional and user-friendly experience.
 
 **Combined with v1.0.4 improvements:**
 - ✅ Intelligent question selection (handles category shortages)

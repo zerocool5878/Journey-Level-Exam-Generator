@@ -6,9 +6,9 @@
 
 ### 🚀 Fixed Auto-Update System
 - **Startup Update Check:** Auto-updater now checks for updates BEFORE main window opens
-- **Smart Prompts:** Users are only prompted when updates are available (no annoying "latest version" popups)
+- **Immediate Prompts:** Users are prompted for updates at launch, not after the app is running
 - **Blocking Updates:** Update dialog prevents app startup until user decides to update or skip
-- **Clean User Flow:** Check → Prompt (if needed) → Update → Restart → Latest Version automatically
+- **Clean User Flow:** Check → Prompt → Update → Restart → Latest Version automatically
 
 ### 🎯 User Experience Improvements
 - **No More Delayed Notifications:** Eliminated confusing 3-second delayed update checks
@@ -37,11 +37,11 @@
 
 **After v1.0.4:**
 1. ✅ Launch executable
-2. ✅ **BEFORE main window:** Check for updates silently
+2. ✅ **BEFORE main window:** Check for updates
 3. ✅ **IF UPDATE AVAILABLE:** Show dialog immediately  
-4. ✅ **IF NO UPDATE:** Main window opens directly (no popup)
-5. ✅ **USER CLICKS UPDATE:** Download → Install → Restart to new version
-6. ✅ **USER CLICKS SKIP:** Continue with current version
+4. ✅ **USER CLICKS UPDATE:** Download → Install → Restart to new version
+5. ✅ **USER CLICKS SKIP:** Continue with current version
+6. ✅ Main window opens with chosen version
 
 ## 💾 Installation
 
