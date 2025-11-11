@@ -20,7 +20,7 @@ import time
 
 class AutoUpdater:
     def __init__(self):
-        self.current_version = "1.0.2"
+        self.current_version = "1.0.3"
         self.repo_owner = "zerocool5878"
         self.repo_name = "Journey-Level-Exam-Generator"
         self.github_api_url = f"https://api.github.com/repos/{self.repo_owner}/{self.repo_name}/releases/latest"
