@@ -18,7 +18,7 @@ from threading import Thread
 
 # Import auto-updater functions
 try:
-    from auto_updater import manual_check_for_updates, startup_update_check
+    from auto_updater import manual_check_for_updates
     AUTO_UPDATE_AVAILABLE = True
 except ImportError:
     print("Auto-updater not available")
@@ -62,13 +62,7 @@ class TestGeneratorApp:
         # Fix existing image paths in database
         self.fix_image_paths()
         
-        # Check for updates on startup (after a delay to let UI load)
-        if AUTO_UPDATE_AVAILABLE:
-            self.root.after(3000, self.startup_update_check)  # Check after 3 seconds
-    
-    def startup_update_check(self):
-        """Check for updates on startup"""
-        Thread(target=startup_update_check, daemon=True).start()
+        # Auto-update check is now handled before main window creation
     
     def fix_image_paths(self):
         """Fix image paths in database to include images/ prefix"""
@@ -2003,6 +1997,22 @@ that best answers the question or completes the statement. Show all work.
             self.conn.close()
 
 def main():
+    # Check for updates BEFORE opening the main window (only for .exe builds)
+    if getattr(sys, 'frozen', False):  # Only check when running as exe
+        try:
+            from auto_updater import startup_update_check
+            
+            # This will show update dialog if update is available
+            # If update is installed, the app will restart and never reach here
+            has_update, release_data = startup_update_check()
+            
+            # If we reach here, either no update or user declined update
+            
+        except Exception as e:
+            print(f"Update check failed: {e}")
+            # Continue with normal startup if update check fails
+    
+    # Create main application window
     root = tk.Tk()
     app = TestGeneratorApp(root)
     

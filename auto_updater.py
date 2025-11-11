@@ -240,9 +240,9 @@ def manual_check_for_updates():
     updater.check_for_updates(silent=False)
 
 def startup_update_check():
-    """Function to be called on application startup"""
+    """Function to be called on application startup - blocking check with dialog"""
     updater = AutoUpdater()
-    updater.check_for_updates_on_startup()
+    return updater.check_for_updates(silent=False)
 
 if __name__ == "__main__":
     # Test the updater
