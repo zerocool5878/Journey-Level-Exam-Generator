@@ -519,7 +519,7 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         
         # Instructions with modern styling
         instructions_frame = ttk.Frame(content_frame, style='Card.TFrame')
-        instructions_frame.pack(fill=tk.X, pady=(0, 20), ipady=15)
+        instructions_frame.pack(fill=tk.X, pady=(0, 15), ipady=8)
         
         instructions = """💡 Configure the percentage distribution of questions for each category in generated tests.
         
@@ -528,22 +528,25 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
 📈 Values are rounded to the nearest whole number for question count"""
         
         ttk.Label(instructions_frame, text=instructions, font=("Segoe UI", 10), 
-                 justify='left', foreground='#495057').pack(padx=20, pady=10)
+                 justify='left', foreground='#495057').pack(padx=15, pady=6)
         
-        # Category settings frame with modern styling
-        self.settings_frame = ttk.LabelFrame(content_frame, text="📊 Category Percentages", padding=20)
-        self.settings_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
+        # Category settings frame with modern styling and scrollable area
+        self.settings_label_frame = ttk.LabelFrame(content_frame, text="📊 Category Percentages", padding=10)
+        self.settings_label_frame.pack(fill=tk.X, pady=(0, 15))
         
-        # Buttons
-        button_frame = ttk.Frame(settings_frame)
-        button_frame.pack(pady=10)
+        # Create scrollable frame for categories
+        self.create_scrollable_category_frame()
+        
+        # Buttons - fixed at bottom, outside of scrollable area
+        button_frame = ttk.Frame(content_frame)
+        button_frame.pack(pady=8)
         ttk.Button(button_frame, text="Save Settings", command=self.save_category_settings).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Reset to Default", command=self.reset_category_settings).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Refresh Categories", command=self.load_category_settings).pack(side=tk.LEFT, padx=5)
         
         # Danger zone - Database wipe button
-        danger_frame = ttk.LabelFrame(content_frame, text="⚠️ DANGER ZONE", padding=10)
-        danger_frame.pack(fill=tk.X, pady=20)
+        danger_frame = ttk.LabelFrame(content_frame, text="⚠️ DANGER ZONE", padding=8)
+        danger_frame.pack(fill=tk.X, pady=10)
         
         ttk.Label(danger_frame, text="WARNING: This will permanently delete ALL questions and data!", 
                  foreground="red", font=("Arial", 10, "bold")).pack(pady=5)
@@ -552,6 +555,51 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         
         # Load categories
         self.load_category_settings()
+    
+    def create_scrollable_category_frame(self):
+        """Create a scrollable frame for category settings with grid layout"""
+        # Create main container frame
+        container_frame = ttk.Frame(self.settings_label_frame)
+        container_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Create canvas and scrollbars - fixed height to ensure other elements are visible
+        self.category_canvas = tk.Canvas(container_frame, height=150, bg='white', highlightthickness=0)
+        v_scrollbar = ttk.Scrollbar(container_frame, orient="vertical", command=self.category_canvas.yview)
+        h_scrollbar = ttk.Scrollbar(container_frame, orient="horizontal", command=self.category_canvas.xview)
+        
+        # Create the scrollable frame
+        self.settings_frame = ttk.Frame(self.category_canvas)
+        
+        # Configure canvas
+        self.category_canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        
+        # Pack scrollbars and canvas
+        v_scrollbar.pack(side="right", fill="y")
+        h_scrollbar.pack(side="bottom", fill="x")
+        self.category_canvas.pack(side="left", fill="both", expand=True)
+        
+        # Create window in canvas
+        self.canvas_frame_id = self.category_canvas.create_window((0, 0), window=self.settings_frame, anchor="nw")
+        
+        # Bind events for scrolling
+        self.settings_frame.bind('<Configure>', self.on_frame_configure)
+        self.category_canvas.bind('<Configure>', self.on_canvas_configure)
+        self.category_canvas.bind_all("<MouseWheel>", self.on_mousewheel)
+    
+    def on_frame_configure(self, event):
+        """Reset the scroll region to encompass the inner frame"""
+        self.category_canvas.configure(scrollregion=self.category_canvas.bbox("all"))
+    
+    def on_canvas_configure(self, event):
+        """Configure the inner frame size to fill the canvas"""
+        canvas_width = event.width
+        canvas_height = event.height
+        self.category_canvas.itemconfig(self.canvas_frame_id, width=canvas_width)
+    
+    def on_mousewheel(self, event):
+        """Handle mouse wheel scrolling"""
+        if self.category_canvas.winfo_exists():
+            self.category_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
     
     def create_import_tab(self):
         """Create the Excel import tab"""
@@ -1188,7 +1236,7 @@ that best answers the question or completes the statement. Show all work.
         """Open a popup dialog to add a new question"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Add New Question")
-        dialog.geometry("800x600")
+        dialog.geometry("800x580")  # Optimized height - no wasted space
         dialog.resizable(True, True)
         dialog.transient(self.root)
         dialog.grab_set()
@@ -1203,57 +1251,59 @@ that best answers the question or completes the statement. Show all work.
         
         # Main content frame
         content_frame = ttk.Frame(dialog)
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
         
         # Header
-        ttk.Label(content_frame, text="➕ Add New Question", style='Heading.TLabel').pack(pady=(0, 20))
+        ttk.Label(content_frame, text="➕ Add New Question", style='Heading.TLabel').pack(pady=(0, 12))
         
-        # Form frame
+        # Form frame - tight layout
         form_frame = ttk.Frame(content_frame, style='Card.TFrame')
-        form_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 20), ipady=15)
+        form_frame.pack(fill=tk.X, pady=(0, 12), ipady=12)
         
-        # Configure grid
+        # Configure grid - better column distribution
         form_frame.columnconfigure(1, weight=1)
+        form_frame.columnconfigure(2, minsize=80)
+        form_frame.columnconfigure(3, minsize=80)
         
         # Question text
-        ttk.Label(form_frame, text="📝 Question:", style='Subheading.TLabel').grid(row=0, column=0, sticky="nw", pady=8, padx=(15, 10))
-        question_entry = tk.Text(form_frame, height=4, width=60, font=("Segoe UI", 10),
+        ttk.Label(form_frame, text="📝 Question:", style='Subheading.TLabel').grid(row=0, column=0, sticky="nw", pady=6, padx=(12, 8))
+        question_entry = tk.Text(form_frame, height=3, width=60, font=("Segoe UI", 10),
                                 bg='#FFFFFF', fg='#343A40', relief='solid', borderwidth=1)
-        question_entry.grid(row=0, column=1, columnspan=3, pady=8, padx=(5, 15), sticky="ew")
+        question_entry.grid(row=0, column=1, columnspan=3, pady=6, padx=(4, 12), sticky="ew")
         
         # Answer
-        ttk.Label(form_frame, text="✅ Answer:", style='Subheading.TLabel').grid(row=1, column=0, sticky="w", pady=8, padx=(15, 10))
+        ttk.Label(form_frame, text="✅ Answer:", style='Subheading.TLabel').grid(row=1, column=0, sticky="w", pady=6, padx=(12, 8))
         answer_entry = ttk.Entry(form_frame, style='Modern.TEntry', width=15, justify='center')
-        answer_entry.grid(row=1, column=1, pady=8, padx=5, sticky="w")
-        ttk.Label(form_frame, text="(A, B, C, or D)", font=("Segoe UI", 9), foreground='#6C757D').grid(row=1, column=2, sticky="w", padx=5)
+        answer_entry.grid(row=1, column=1, pady=6, padx=4, sticky="w")
+        ttk.Label(form_frame, text="(A, B, C, or D)", font=("Segoe UI", 9), foreground='#6C757D').grid(row=1, column=2, sticky="w", padx=4)
         
         # Multiple choice options
-        ttk.Label(form_frame, text="🅰️ Choice A:", style='Subheading.TLabel').grid(row=2, column=0, sticky="w", pady=5, padx=(15, 10))
+        ttk.Label(form_frame, text="🅰️ Choice A:", style='Subheading.TLabel').grid(row=2, column=0, sticky="w", pady=4, padx=(12, 8))
         choice_a_entry = ttk.Entry(form_frame, style='Modern.TEntry', width=50)
-        choice_a_entry.grid(row=2, column=1, columnspan=3, pady=5, padx=(5, 15), sticky="ew")
+        choice_a_entry.grid(row=2, column=1, columnspan=3, pady=4, padx=(4, 12), sticky="ew")
         
-        ttk.Label(form_frame, text="🅱️ Choice B:", style='Subheading.TLabel').grid(row=3, column=0, sticky="w", pady=5, padx=(15, 10))
+        ttk.Label(form_frame, text="🅱️ Choice B:", style='Subheading.TLabel').grid(row=3, column=0, sticky="w", pady=4, padx=(12, 8))
         choice_b_entry = ttk.Entry(form_frame, style='Modern.TEntry', width=50)
-        choice_b_entry.grid(row=3, column=1, columnspan=3, pady=5, padx=(5, 15), sticky="ew")
+        choice_b_entry.grid(row=3, column=1, columnspan=3, pady=4, padx=(4, 12), sticky="ew")
         
-        ttk.Label(form_frame, text="🅲️ Choice C:", style='Subheading.TLabel').grid(row=4, column=0, sticky="w", pady=5, padx=(15, 10))
+        ttk.Label(form_frame, text="🅲️ Choice C:", style='Subheading.TLabel').grid(row=4, column=0, sticky="w", pady=4, padx=(12, 8))
         choice_c_entry = ttk.Entry(form_frame, style='Modern.TEntry', width=50)
-        choice_c_entry.grid(row=4, column=1, columnspan=3, pady=5, padx=(5, 15), sticky="ew")
+        choice_c_entry.grid(row=4, column=1, columnspan=3, pady=4, padx=(4, 12), sticky="ew")
         
-        ttk.Label(form_frame, text="🅳️ Choice D:", style='Subheading.TLabel').grid(row=5, column=0, sticky="w", pady=5, padx=(15, 10))
+        ttk.Label(form_frame, text="🅳️ Choice D:", style='Subheading.TLabel').grid(row=5, column=0, sticky="w", pady=4, padx=(12, 8))
         choice_d_entry = ttk.Entry(form_frame, style='Modern.TEntry', width=50)
-        choice_d_entry.grid(row=5, column=1, columnspan=3, pady=5, padx=(5, 15), sticky="ew")
+        choice_d_entry.grid(row=5, column=1, columnspan=3, pady=4, padx=(4, 12), sticky="ew")
         
         # Category
-        ttk.Label(form_frame, text="📁 Category:", style='Subheading.TLabel').grid(row=6, column=0, sticky="w", pady=8, padx=(15, 10))
+        ttk.Label(form_frame, text="📁 Category:", style='Subheading.TLabel').grid(row=6, column=0, sticky="w", pady=6, padx=(12, 8))
         category_entry = ttk.Entry(form_frame, style='Modern.TEntry', width=30)
-        category_entry.grid(row=6, column=1, pady=8, padx=5, sticky="w")
+        category_entry.grid(row=6, column=1, pady=6, padx=4, sticky="w")
         
         # Image
-        ttk.Label(form_frame, text="🖼️ Image:", style='Subheading.TLabel').grid(row=7, column=0, sticky="w", pady=8, padx=(15, 10))
+        ttk.Label(form_frame, text="🖼️ Image:", style='Subheading.TLabel').grid(row=7, column=0, sticky="w", pady=6, padx=(12, 8))
         image_var = tk.StringVar()
-        image_entry = ttk.Entry(form_frame, textvariable=image_var, style='Modern.TEntry', width=40, state="readonly")
-        image_entry.grid(row=7, column=1, pady=8, padx=5, sticky="ew")
+        image_entry = ttk.Entry(form_frame, textvariable=image_var, style='Modern.TEntry', width=35, state="readonly")
+        image_entry.grid(row=7, column=1, pady=6, padx=4, sticky="ew")
         
         def browse_image():
             file_path = filedialog.askopenfilename(
@@ -1278,12 +1328,12 @@ that best answers the question or completes the statement. Show all work.
         def clear_image():
             image_var.set("")
         
-        ttk.Button(form_frame, text="📁 Browse", command=browse_image, style="Primary.TButton").grid(row=7, column=2, pady=8, padx=5)
-        ttk.Button(form_frame, text="🗑️ Clear", command=clear_image, style="Warning.TButton").grid(row=7, column=3, pady=8, padx=5)
+        ttk.Button(form_frame, text="📁 Browse", command=browse_image, style="Primary.TButton").grid(row=7, column=2, pady=6, padx=(8, 4))
+        ttk.Button(form_frame, text="🗑️ Clear", command=clear_image, style="Warning.TButton").grid(row=7, column=3, pady=6, padx=(4, 12))
         
-        # Buttons
+        # Buttons - tight spacing, no wasted space
         button_frame = ttk.Frame(content_frame)
-        button_frame.pack(pady=10)
+        button_frame.pack(pady=5)
         
         def add_question_from_dialog():
             question = question_entry.get(1.0, tk.END).strip()
@@ -1560,11 +1610,10 @@ that best answers the question or completes the statement. Show all work.
             messagebox.showinfo("Success", "Question deleted successfully")
     
     def load_category_settings(self):
-        """Load category settings from database"""
-        # Clear existing widgets
+        """Load category settings from database with grid layout"""
+        # Clear existing widgets (all of them, not just frames)
         for widget in self.settings_frame.winfo_children():
-            if isinstance(widget, ttk.Frame):
-                widget.destroy()
+            widget.destroy()
         
         # Get unique categories from questions
         cursor = self.conn.cursor()
@@ -1578,21 +1627,44 @@ that best answers the question or completes the statement. Show all work.
         self.category_vars = {}
         
         if categories:
+            # Configure grid layout - 3 categories per row for better space utilization
+            categories_per_row = 3
+            
             for i, category in enumerate(categories):
-                frame = ttk.Frame(self.settings_frame)
-                frame.pack(fill=tk.X, pady=2)
+                row = i // categories_per_row
+                col = i % categories_per_row
                 
-                ttk.Label(frame, text=f"{category}:", width=20).pack(side=tk.LEFT, padx=5)
+                # Create frame for this category
+                category_frame = ttk.Frame(self.settings_frame, padding=5)
+                category_frame.grid(row=row, column=col, padx=10, pady=5, sticky="ew")
                 
+                # Category label
+                ttk.Label(category_frame, text=f"{category}:", width=12, anchor="w").grid(row=0, column=0, sticky="w")
+                
+                # Percentage spinbox
                 var = tk.IntVar(value=settings.get(category, 0))
                 self.category_vars[category] = var
                 
-                spinbox = tk.Spinbox(frame, from_=0, to=100, width=10, textvariable=var)
-                spinbox.pack(side=tk.LEFT, padx=5)
+                spinbox = tk.Spinbox(category_frame, from_=0, to=100, width=8, textvariable=var)
+                spinbox.grid(row=0, column=1, padx=(5, 2))
                 
-                ttk.Label(frame, text="%").pack(side=tk.LEFT, padx=2)
+                # Percentage label
+                ttk.Label(category_frame, text="%").grid(row=0, column=2, sticky="w")
+            
+            # Configure column weights for even distribution
+            for col in range(categories_per_row):
+                self.settings_frame.columnconfigure(col, weight=1)
+                
         else:
-            ttk.Label(self.settings_frame, text="No categories found. Add some questions first.").pack(pady=20)
+            # No categories message
+            no_cat_label = ttk.Label(self.settings_frame, text="No categories found. Add some questions first.", 
+                                   font=("Segoe UI", 11), foreground="#6c757d")
+            no_cat_label.grid(row=0, column=0, columnspan=3, pady=40)
+        
+        # Update scroll region after adding widgets
+        self.settings_frame.update_idletasks()
+        if hasattr(self, 'category_canvas'):
+            self.category_canvas.configure(scrollregion=self.category_canvas.bbox("all"))
     
     def save_category_settings(self):
         """Save category percentage settings"""
