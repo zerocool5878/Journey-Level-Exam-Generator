@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 import shutil
 import uuid
+import sys
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
@@ -23,6 +24,15 @@ except ImportError:
     print("Auto-updater not available")
     AUTO_UPDATE_AVAILABLE = False
 
+def get_application_path():
+    """Get the directory where the application is located (works for both .py and .exe)"""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        return os.path.dirname(sys.executable)
+    else:
+        # Running as Python script
+        return os.path.dirname(os.path.abspath(__file__))
+
 class TestGeneratorApp:
     def __init__(self, root):
         self.root = root
@@ -31,7 +41,7 @@ class TestGeneratorApp:
         
         # Set the lightning bolt icon
         try:
-            icon_path = os.path.join(os.path.dirname(__file__), 'lightning_icon.ico')
+            icon_path = os.path.join(get_application_path(), 'lightning_icon.ico')
             if os.path.exists(icon_path):
                 self.root.iconbitmap(icon_path)
         except Exception as e:
@@ -89,7 +99,7 @@ class TestGeneratorApp:
             return relative_path
         
         # First try the path as given
-        full_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+        full_path = os.path.join(get_application_path(), relative_path)
         if os.path.exists(full_path):
             return full_path
         
@@ -184,13 +194,16 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         cursor = self.conn.cursor()
         
         # Create images directory if it doesn't exist
-        self.images_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'images')
+        # Use the actual executable directory, not the temporary PyInstaller directory
+        self.images_dir = os.path.join(get_application_path(), 'images')
         if not os.path.exists(self.images_dir):
             os.makedirs(self.images_dir)
             messagebox.showinfo("Images Folder Created", 
                               f"Created 'images' folder at:\n{self.images_dir}\n\n" + 
                               "All question images will be automatically copied here when you select them.")
             print(f"Created images directory: {self.images_dir}")
+        else:
+            print(f"Using existing images directory: {self.images_dir}")
         
         # Questions table
         cursor.execute('''
@@ -1161,7 +1174,7 @@ that best answers the question or completes the statement. Show all work.
             try:
                 shutil.copy2(filepath, new_filepath)
                 # Store relative path from program directory
-                relative_path = os.path.relpath(new_filepath, os.path.dirname(os.path.abspath(__file__)))
+                relative_path = os.path.relpath(new_filepath, get_application_path())
                 self.image_path_var.set(relative_path)
                 messagebox.showinfo("Success", f"Image copied to: {relative_path}")
             except Exception as e:
@@ -1182,7 +1195,7 @@ that best answers the question or completes the statement. Show all work.
         
         # Configure the dialog icon to match the main window
         try:
-            icon_path = os.path.join(os.path.dirname(__file__), 'lightning_icon.ico')
+            icon_path = os.path.join(get_application_path(), 'lightning_icon.ico')
             if os.path.exists(icon_path):
                 dialog.iconbitmap(icon_path)
         except:
@@ -1488,7 +1501,7 @@ that best answers the question or completes the statement. Show all work.
                     if filepath != new_filepath:
                         shutil.copy2(filepath, new_filepath)
                     # Store relative path
-                    relative_path = os.path.relpath(new_filepath, os.path.dirname(os.path.abspath(__file__)))
+                    relative_path = os.path.relpath(new_filepath, get_application_path())
                     image_path_var.set(relative_path)
                 except Exception as e:
                     messagebox.showerror("Error", f"Failed to copy image: {str(e)}")
