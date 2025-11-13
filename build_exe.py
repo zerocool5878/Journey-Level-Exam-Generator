@@ -52,11 +52,17 @@ def main():
         "--add-data=lightning_icon.ico;.",      # Include icon in bundle
         "--add-data=images;images",             # Include images directory
         
-        # Core GUI and system imports
+        # Core GUI and system imports - CRITICAL FOR STYLING
         "--hidden-import=tkinter",
         "--hidden-import=tkinter.ttk",
         "--hidden-import=tkinter.filedialog",
         "--hidden-import=tkinter.messagebox",
+        "--hidden-import=tkinter.font",
+        "--hidden-import=tkinter.constants",
+        "--collect-all=tkinter",                # Include ALL tkinter resources
+        "--collect-all=_tkinter",               # Include C extension
+        # Collect tcl/tk files (themes, styling, etc)
+        "--collect-data=tkinter",
         
         # PIL/Pillow - complete image handling
         "--hidden-import=PIL",
@@ -116,6 +122,9 @@ def main():
         "--hidden-import=pytz",
         "--hidden-import=dateutil",
         "--hidden-import=dateutil.parser",
+        
+        # Critical: Don't compress tkinter DLLs - can break themes/styling
+        "--noupx",
         
         # Note: --clean removed due to Windows file locking issues
         # Clean manually if needed before running
