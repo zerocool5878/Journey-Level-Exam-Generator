@@ -30,7 +30,12 @@ class AutoUpdater:
         self.repo_owner = "zerocool5878"
         self.repo_name = "Journey-Level-Exam-Generator"
         self.github_api_url = f"https://api.github.com/repos/{self.repo_owner}/{self.repo_name}/releases/latest"
-        self.exe_name = "Journey-Level-Exam-Generator.exe"
+        
+        # Detect the actual EXE name dynamically
+        if getattr(sys, 'frozen', False):
+            self.exe_name = os.path.basename(sys.executable)
+        else:
+            self.exe_name = "Journey-Level-Exam-Generator.exe"
         
     def get_current_version(self):
         """Get the current version of the application"""
@@ -138,14 +143,14 @@ class AutoUpdater:
         text_widget.insert(tk.END, release_notes)
         text_widget.config(state=tk.DISABLED)
         
+        # Progress bar frame (pack BEFORE buttons so it appears above them)
+        progress_frame = tk.Frame(main_frame)
+        progress_label = tk.Label(progress_frame, text="", font=("Arial", 10, "bold"), fg="#2E86AB")
+        progress_label.pack(pady=5)
+        
         # Buttons frame
         button_frame = tk.Frame(main_frame)
         button_frame.pack(fill=tk.X, pady=(10, 0))
-        
-        # Progress bar frame (initially hidden)
-        progress_frame = tk.Frame(main_frame)
-        progress_label = tk.Label(progress_frame, text="Preparing download...", font=("Arial", 10))
-        progress_label.pack(pady=5)
         
         def update_progress(text):
             """Thread-safe progress update"""
@@ -238,45 +243,51 @@ class AutoUpdater:
             current_exe = sys.executable if getattr(sys, 'frozen', False) else __file__
             current_dir = os.path.dirname(os.path.abspath(current_exe))
             new_exe_path = os.path.join(current_dir, self.exe_name)
-            backup_path = new_exe_path + ".backup"
+            
+            # Simply move the downloaded file to replace current exe
+            if progress_callback:
+                progress_callback("Installing update...")
             
             # Create backup of current version
+            backup_path = new_exe_path + ".old"
             if os.path.exists(new_exe_path):
-                shutil.copy2(new_exe_path, backup_path)
+                # Remove old backup if exists
+                if os.path.exists(backup_path):
+                    try:
+                        os.remove(backup_path)
+                    except:
+                        pass
+                # Rename current exe to .old
+                try:
+                    os.rename(new_exe_path, backup_path)
+                except:
+                    pass
             
-            # Replace with new version
+            # Move new version into place
             shutil.move(temp_path, new_exe_path)
             
-            # Close dialog first
-            try:
-                dialog.destroy()
-            except:
-                pass
+            if progress_callback:
+                progress_callback("Update complete!")
             
-            # Start new version BEFORE showing message (so it launches immediately)
-            subprocess.Popen([new_exe_path], cwd=current_dir)
+            # Show completion message BEFORE destroying dialog
+            messagebox.showinfo(
+                "Update Successful",
+                f"Version {release_data['tag_name']} has been downloaded successfully!\n\n"
+                "The application will now close.\n"
+                "Please reopen the application to use the new version.",
+                parent=dialog
+            )
             
-            # Show quick message and exit
-            root = tk.Tk()
-            root.withdraw()  # Hide the window
-            root.after(100, lambda: [
-                messagebox.showinfo("Update Complete", 
-                                  "Update installed successfully! The application is now restarting.", 
-                                  parent=root),
-                root.quit(),
-                os._exit(0)  # Force exit the entire process
-            ])
-            root.mainloop()
+            # Now destroy the dialog and exit
+            dialog.destroy()
+            
+            # Exit the application
+            os._exit(0)
             
         except Exception as e:
-            # Restore backup if something went wrong
-            if 'backup_path' in locals() and os.path.exists(backup_path):
-                if 'new_exe_path' in locals() and os.path.exists(new_exe_path):
-                    os.remove(new_exe_path)
-                shutil.move(backup_path, new_exe_path)
-            
             messagebox.showerror("Update Failed", 
-                               f"Error installing update: {str(e)}")
+                               f"Error installing update: {str(e)}\n\n"
+                               "Your current version has not been modified.")
             dialog.destroy()
     
     def check_for_updates_on_startup(self):

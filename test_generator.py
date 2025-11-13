@@ -29,18 +29,23 @@ except ImportError:
 def get_application_path():
     """Get the directory where the application is located (works for both .py and .exe)"""
     if getattr(sys, 'frozen', False):
-        # Running as compiled executable
+        # Running as compiled executable (both onefile and onedir)
         return os.path.dirname(sys.executable)
     else:
         # Running as Python script
         return os.path.dirname(os.path.abspath(__file__))
 
 def get_resource_path(relative_path):
-    """Get absolute path to resource, works for dev and for PyInstaller"""
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
+    """Get absolute path to resource, works for dev and for PyInstaller onefile/onedir"""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller bundle
+        if hasattr(sys, '_MEIPASS'):
+            # onefile mode - temp extraction folder
+            base_path = sys._MEIPASS
+        else:
+            # onedir mode - same directory as executable
+            base_path = os.path.dirname(sys.executable)
+    else:
         # Not running as PyInstaller bundle, use regular path
         base_path = os.path.dirname(os.path.abspath(__file__))
     
