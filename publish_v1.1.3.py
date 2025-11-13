@@ -13,7 +13,7 @@ import zipfile
 # Configuration
 VERSION = "1.1.3"
 TAG = f"v{VERSION}"
-GITHUB_TOKEN = "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"
+# GitHub token not needed - using GitHub CLI (gh) which uses its own authentication
 REPO_OWNER = "zerocool5878"
 REPO_NAME = "Journey-Level-Exam-Generator"
 
