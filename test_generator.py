@@ -40,10 +40,11 @@ class TestGeneratorApp:
         self.root.title("Test Generator - Question Bank Manager")
         self.root.geometry("1100x750")
         
-        # Database mode system
+        # Database mode and language system
         self.current_mode = "JW"  # Default to JW mode
+        self.current_language = "English"  # Default to English
         self.jw_database = 'test_questions.db'  # Current default database
-        self.cw_database = None  # Will be set by user selection
+        self.cw_database = None  # Will be set dynamically based on language
         
         # Set the lightning bolt icon
         try:
@@ -74,28 +75,28 @@ class TestGeneratorApp:
         # Auto-update check is now handled before main window creation
     
     def load_settings(self):
-        """Load application settings including database paths and mode"""
+        """Load application settings including database paths, mode, and language"""
         settings_file = 'app_settings.json'
         try:
             if os.path.exists(settings_file):
                 with open(settings_file, 'r') as f:
                     settings = json.load(f)
                     self.current_mode = settings.get('current_mode', 'JW')
-                    self.cw_database = settings.get('cw_database_path', None)
+                    self.current_language = settings.get('current_language', 'English')
             else:
                 # Default settings
                 self.current_mode = "JW"
-                self.cw_database = None
+                self.current_language = "English"
         except Exception as e:
             print(f"Error loading settings: {e}")
             self.current_mode = "JW"
-            self.cw_database = None
+            self.current_language = "English"
     
     def save_settings(self):
         """Save application settings"""
         settings = {
             'current_mode': self.current_mode,
-            'cw_database_path': self.cw_database
+            'current_language': self.current_language
         }
         try:
             with open('app_settings.json', 'w') as f:
@@ -104,37 +105,46 @@ class TestGeneratorApp:
             print(f"Error saving settings: {e}")
     
     def get_current_database_path(self):
-        """Get the database path for current mode"""
+        """Get the database path for current mode and language combination"""
+        # Create database filename based on mode and language combination
         if self.current_mode == "JW":
-            return self.jw_database
-        elif self.current_mode == "CW/CE":
-            # Use cw_questions.db as default CW/CE database
-            if not self.cw_database:
-                self.cw_database = 'cw_questions.db'
-                self.save_settings()
-            return self.cw_database
-        return self.jw_database
+            if self.current_language == "English":
+                return 'test_questions.db'  # Original JW English database
+            else:  # Spanish
+                return 'test_questions_spanish.db'
+        else:  # CW/CE mode
+            if self.current_language == "English":
+                return 'cw_questions.db'
+            else:  # Spanish
+                return 'cw_questions_spanish.db'
     
     def get_exam_title(self):
-        """Get the exam title based on current mode"""
+        """Get the exam title based on current mode and language"""
         if self.current_mode == "CW/CE":
-            return "CW/CE Exam"
-        else:
-            return "Journey-Level Proficiency Exam"
+            if self.current_language == "Spanish":
+                return "Examen CW/CE"
+            else:
+                return "CW/CE Exam"
+        else:  # JW mode
+            if self.current_language == "Spanish":
+                return "Examen de Competencia de Nivel de Viaje"
+            else:
+                return "Journey-Level Proficiency Exam"
     
-    def switch_database_mode(self, new_mode):
-        """Switch between JW and CW/CE database modes"""
-        if new_mode == self.current_mode:
+    def switch_database_selection(self, new_mode, new_language):
+        """Switch database based on mode and language combination"""
+        if new_mode == self.current_mode and new_language == self.current_language:
             return True  # No change needed
         
         # Close current database connection
         if hasattr(self, 'conn'):
             self.conn.close()
         
-        # Update mode
+        # Update mode and language
         self.current_mode = new_mode
+        self.current_language = new_language
         
-        # Reinitialize database connection (will create CW/CE db if needed)
+        # Reinitialize database connection (will create database if needed)
         try:
             self.init_database()
             
@@ -148,21 +158,20 @@ class TestGeneratorApp:
             # Save settings
             self.save_settings()
             
-            print(f"Switched to {new_mode} mode")
+            db_path = self.get_current_database_path()
+            print(f"Switched to {new_mode} {new_language} mode (database: {db_path})")
             return True
             
         except Exception as e:
-            print(f"Error switching to {new_mode} mode: {str(e)}")
+            print(f"Error switching to {new_mode} {new_language} mode: {str(e)}")
             # Continue anyway - database will be created
             return True
     
     def update_window_title(self):
-        """Update window title based on current mode"""
+        """Update window title based on current mode and language"""
         base_title = "Test Generator - Question Bank Manager"
-        if self.current_mode == "CW/CE":
-            self.root.title(f"{base_title} - CW/CE")
-        else:
-            self.root.title(f"{base_title} - JW")
+        lang_suffix = "ES" if self.current_language == "Spanish" else "EN"
+        self.root.title(f"{base_title} - {self.current_mode} ({lang_suffix})")
     
     def get_exam_title(self):
         """Get the appropriate exam title based on current mode"""
@@ -468,9 +477,9 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         self.update_window_title()
     
     def create_mode_toggle(self):
-        """Create simple database mode toggle at the top of the window"""
+        """Create dual toggle system for database mode and language"""
         # Main toggle frame - centered and compact
-        toggle_frame = tk.Frame(self.root, bg='#f0f0f0', height=50)
+        toggle_frame = tk.Frame(self.root, bg='#f0f0f0', height=60)
         toggle_frame.pack(fill=tk.X, padx=15, pady=(10, 5))
         toggle_frame.pack_propagate(False)
         
@@ -478,45 +487,92 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         center_frame = tk.Frame(toggle_frame, bg='#f0f0f0')
         center_frame.pack(expand=True)
         
-        # Create custom toggle switch
-        self.create_custom_toggle(center_frame)
+        # Create mode toggle (JW/CW-CE)
+        mode_frame = tk.Frame(center_frame, bg='#f0f0f0')
+        mode_frame.pack(side=tk.LEFT, padx=(0, 30))
         
-        # Update display based on current mode
-        self.update_mode_display()
+        mode_label = tk.Label(mode_frame, text="Mode:", font=('Segoe UI', 10, 'bold'), 
+                             bg='#f0f0f0', fg='#333333')
+        mode_label.pack(side=tk.TOP, pady=(0, 5))
+        
+        self.create_mode_toggle_buttons(mode_frame)
+        
+        # Create language toggle (English/Spanish)
+        lang_frame = tk.Frame(center_frame, bg='#f0f0f0')
+        lang_frame.pack(side=tk.LEFT)
+        
+        lang_label = tk.Label(lang_frame, text="Language:", font=('Segoe UI', 10, 'bold'), 
+                             bg='#f0f0f0', fg='#333333')
+        lang_label.pack(side=tk.TOP, pady=(0, 5))
+        
+        self.create_language_toggle_buttons(lang_frame)
+        
+        # Update display based on current selections
+        self.update_toggle_display()
     
-    def create_custom_toggle(self, parent):
-        """Create a custom toggle switch widget"""
-        # Toggle container
-        self.toggle_frame = tk.Frame(parent, bg='#cccccc', relief=tk.RAISED, bd=1)
-        self.toggle_frame.pack(side=tk.LEFT)
+    def create_mode_toggle_buttons(self, parent):
+        """Create mode toggle buttons (JW/CW-CE)"""
+        # Mode toggle container
+        self.mode_toggle_frame = tk.Frame(parent, bg='#cccccc', relief=tk.RAISED, bd=1)
+        self.mode_toggle_frame.pack()
         
         # JW button
-        self.jw_btn = tk.Button(self.toggle_frame, text="JW", font=('Segoe UI', 10, 'bold'),
+        self.jw_btn = tk.Button(self.mode_toggle_frame, text="JW", font=('Segoe UI', 10, 'bold'),
                                command=lambda: self.on_mode_toggle("JW"),
-                               relief=tk.FLAT, bd=0, padx=15, pady=8)
+                               relief=tk.FLAT, bd=0, padx=15, pady=6)
         self.jw_btn.pack(side=tk.LEFT)
         
         # CW/CE button
-        self.cw_btn = tk.Button(self.toggle_frame, text="CW/CE", font=('Segoe UI', 10, 'bold'),
+        self.cw_btn = tk.Button(self.mode_toggle_frame, text="CW/CE", font=('Segoe UI', 10, 'bold'),
                                command=lambda: self.on_mode_toggle("CW/CE"),
-                               relief=tk.FLAT, bd=0, padx=15, pady=8)
+                               relief=tk.FLAT, bd=0, padx=15, pady=6)
         self.cw_btn.pack(side=tk.LEFT)
+    
+    def create_language_toggle_buttons(self, parent):
+        """Create language toggle buttons (English/Spanish)"""
+        # Language toggle container
+        self.lang_toggle_frame = tk.Frame(parent, bg='#cccccc', relief=tk.RAISED, bd=1)
+        self.lang_toggle_frame.pack()
+        
+        # English button
+        self.eng_btn = tk.Button(self.lang_toggle_frame, text="English", font=('Segoe UI', 10, 'bold'),
+                                command=lambda: self.on_language_toggle("English"),
+                                relief=tk.FLAT, bd=0, padx=15, pady=6)
+        self.eng_btn.pack(side=tk.LEFT)
+        
+        # Spanish button
+        self.spa_btn = tk.Button(self.lang_toggle_frame, text="Español", font=('Segoe UI', 10, 'bold'),
+                                command=lambda: self.on_language_toggle("Spanish"),
+                                relief=tk.FLAT, bd=0, padx=15, pady=6)
+        self.spa_btn.pack(side=tk.LEFT)
     
     def on_mode_toggle(self, new_mode):
         """Handle mode toggle button clicks"""
-        if self.switch_database_mode(new_mode):
-            self.update_mode_display()
+        if self.switch_database_selection(new_mode, self.current_language):
+            self.update_toggle_display()
     
-    def update_mode_display(self):
-        """Update the toggle display based on current mode"""
+    def on_language_toggle(self, new_language):
+        """Handle language toggle button clicks"""
+        if self.switch_database_selection(self.current_mode, new_language):
+            self.update_toggle_display()
+    
+    def update_toggle_display(self):
+        """Update both toggle displays based on current mode and language"""
+        # Update mode toggle
         if self.current_mode == "JW":
-            # Highlight JW button in green
             self.jw_btn.configure(bg='#4CAF50', fg='white', activebackground='#45a049')
             self.cw_btn.configure(bg='#e0e0e0', fg='#666666', activebackground='#d0d0d0')
         else:
-            # Highlight CW/CE button in green
             self.cw_btn.configure(bg='#4CAF50', fg='white', activebackground='#45a049')
             self.jw_btn.configure(bg='#e0e0e0', fg='#666666', activebackground='#d0d0d0')
+        
+        # Update language toggle
+        if self.current_language == "English":
+            self.eng_btn.configure(bg='#4CAF50', fg='white', activebackground='#45a049')
+            self.spa_btn.configure(bg='#e0e0e0', fg='#666666', activebackground='#d0d0d0')
+        else:
+            self.spa_btn.configure(bg='#4CAF50', fg='white', activebackground='#45a049')
+            self.eng_btn.configure(bg='#e0e0e0', fg='#666666', activebackground='#d0d0d0')
 
     def create_test_tab(self):
         """Create the test generation tab"""
