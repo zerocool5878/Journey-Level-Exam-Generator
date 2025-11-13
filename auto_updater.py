@@ -33,7 +33,9 @@ class AutoUpdater:
     def check_for_updates(self, silent=False):
         """Check GitHub for newer releases"""
         try:
-            response = requests.get(self.github_api_url, timeout=10)
+            # Use shorter timeout for startup checks to be more responsive when offline
+            timeout = 3 if silent else 10
+            response = requests.get(self.github_api_url, timeout=timeout)
             if response.status_code == 200:
                 release_data = response.json()
                 latest_version = release_data['tag_name'].lstrip('v')
@@ -54,9 +56,15 @@ class AutoUpdater:
                 return False, None
                 
         except requests.exceptions.RequestException as e:
+            # Network-related errors (offline, timeout, DNS failure, etc.)
             if not silent:
-                messagebox.showwarning("Update Check Failed", 
-                                     f"Network error: {str(e)}")
+                if "timeout" in str(e).lower() or "connection" in str(e).lower():
+                    messagebox.showwarning("Update Check Failed", 
+                                         "Could not check for updates - please check your internet connection.")
+                else:
+                    messagebox.showwarning("Update Check Failed", 
+                                         f"Network error: {str(e)}")
+            # Silently return False when offline during startup - don't block app launch
             return False, None
         except Exception as e:
             if not silent:

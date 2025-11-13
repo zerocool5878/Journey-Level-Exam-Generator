@@ -8,6 +8,7 @@ import os
 import shutil
 import uuid
 import sys
+import json
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
@@ -39,6 +40,11 @@ class TestGeneratorApp:
         self.root.title("Test Generator - Question Bank Manager")
         self.root.geometry("1100x750")
         
+        # Database mode system
+        self.current_mode = "JW"  # Default to JW mode
+        self.jw_database = 'test_questions.db'  # Current default database
+        self.cw_database = None  # Will be set by user selection
+        
         # Set the lightning bolt icon
         try:
             icon_path = os.path.join(get_application_path(), 'lightning_icon.ico')
@@ -46,6 +52,9 @@ class TestGeneratorApp:
                 self.root.iconbitmap(icon_path)
         except Exception as e:
             print(f"Could not load icon: {e}")
+        
+        # Load settings (including database paths and mode)
+        self.load_settings()
         
         # Create menu bar
         self.create_menu()
@@ -64,6 +73,104 @@ class TestGeneratorApp:
         
         # Auto-update check is now handled before main window creation
     
+    def load_settings(self):
+        """Load application settings including database paths and mode"""
+        settings_file = 'app_settings.json'
+        try:
+            if os.path.exists(settings_file):
+                with open(settings_file, 'r') as f:
+                    settings = json.load(f)
+                    self.current_mode = settings.get('current_mode', 'JW')
+                    self.cw_database = settings.get('cw_database_path', None)
+            else:
+                # Default settings
+                self.current_mode = "JW"
+                self.cw_database = None
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+            self.current_mode = "JW"
+            self.cw_database = None
+    
+    def save_settings(self):
+        """Save application settings"""
+        settings = {
+            'current_mode': self.current_mode,
+            'cw_database_path': self.cw_database
+        }
+        try:
+            with open('app_settings.json', 'w') as f:
+                json.dump(settings, f)
+        except Exception as e:
+            print(f"Error saving settings: {e}")
+    
+    def get_current_database_path(self):
+        """Get the database path for current mode"""
+        if self.current_mode == "JW":
+            return self.jw_database
+        elif self.current_mode == "CW/CE":
+            # Use cw_questions.db as default CW/CE database
+            if not self.cw_database:
+                self.cw_database = 'cw_questions.db'
+                self.save_settings()
+            return self.cw_database
+        return self.jw_database
+    
+    def get_exam_title(self):
+        """Get the exam title based on current mode"""
+        if self.current_mode == "CW/CE":
+            return "CW/CE Exam"
+        else:
+            return "Journey-Level Proficiency Exam"
+    
+    def switch_database_mode(self, new_mode):
+        """Switch between JW and CW/CE database modes"""
+        if new_mode == self.current_mode:
+            return True  # No change needed
+        
+        # Close current database connection
+        if hasattr(self, 'conn'):
+            self.conn.close()
+        
+        # Update mode
+        self.current_mode = new_mode
+        
+        # Reinitialize database connection (will create CW/CE db if needed)
+        try:
+            self.init_database()
+            
+            # Refresh all UI components
+            self.load_questions()
+            self.load_category_settings()
+            
+            # Update window title
+            self.update_window_title()
+            
+            # Save settings
+            self.save_settings()
+            
+            print(f"Switched to {new_mode} mode")
+            return True
+            
+        except Exception as e:
+            print(f"Error switching to {new_mode} mode: {str(e)}")
+            # Continue anyway - database will be created
+            return True
+    
+    def update_window_title(self):
+        """Update window title based on current mode"""
+        base_title = "Test Generator - Question Bank Manager"
+        if self.current_mode == "CW/CE":
+            self.root.title(f"{base_title} - CW/CE")
+        else:
+            self.root.title(f"{base_title} - JW")
+    
+    def get_exam_title(self):
+        """Get the appropriate exam title based on current mode"""
+        if self.current_mode == "CW/CE":
+            return "CW/CE Exam"
+        else:
+            return "Journey-Level Proficiency Exam"
+
     def fix_image_paths(self):
         """Fix image paths in database to include images/ prefix"""
         try:
@@ -184,7 +291,9 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
     
     def init_database(self):
         """Initialize SQLite database with required tables and create images folder"""
-        self.conn = sqlite3.connect('test_questions.db')
+        # Get current database path based on mode
+        current_db_path = self.get_current_database_path()
+        self.conn = sqlite3.connect(current_db_path)
         cursor = self.conn.cursor()
         
         # Create images directory if it doesn't exist
@@ -336,9 +445,12 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         # Set main window background
         self.root.configure(bg='#f0f0f0')
         
+        # Create database mode toggle at the top
+        self.create_mode_toggle()
+        
         # Create notebook for tabs
         self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=(5, 10))
         
         # Tab 1: Generate Test
         self.create_test_tab()
@@ -351,7 +463,61 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         
         # Tab 4: Import from Excel
         self.create_import_tab()
+        
+        # Update window title based on initial mode
+        self.update_window_title()
     
+    def create_mode_toggle(self):
+        """Create simple database mode toggle at the top of the window"""
+        # Main toggle frame - centered and compact
+        toggle_frame = tk.Frame(self.root, bg='#f0f0f0', height=50)
+        toggle_frame.pack(fill=tk.X, padx=15, pady=(10, 5))
+        toggle_frame.pack_propagate(False)
+        
+        # Center the toggle buttons
+        center_frame = tk.Frame(toggle_frame, bg='#f0f0f0')
+        center_frame.pack(expand=True)
+        
+        # Create custom toggle switch
+        self.create_custom_toggle(center_frame)
+        
+        # Update display based on current mode
+        self.update_mode_display()
+    
+    def create_custom_toggle(self, parent):
+        """Create a custom toggle switch widget"""
+        # Toggle container
+        self.toggle_frame = tk.Frame(parent, bg='#cccccc', relief=tk.RAISED, bd=1)
+        self.toggle_frame.pack(side=tk.LEFT)
+        
+        # JW button
+        self.jw_btn = tk.Button(self.toggle_frame, text="JW", font=('Segoe UI', 10, 'bold'),
+                               command=lambda: self.on_mode_toggle("JW"),
+                               relief=tk.FLAT, bd=0, padx=15, pady=8)
+        self.jw_btn.pack(side=tk.LEFT)
+        
+        # CW/CE button
+        self.cw_btn = tk.Button(self.toggle_frame, text="CW/CE", font=('Segoe UI', 10, 'bold'),
+                               command=lambda: self.on_mode_toggle("CW/CE"),
+                               relief=tk.FLAT, bd=0, padx=15, pady=8)
+        self.cw_btn.pack(side=tk.LEFT)
+    
+    def on_mode_toggle(self, new_mode):
+        """Handle mode toggle button clicks"""
+        if self.switch_database_mode(new_mode):
+            self.update_mode_display()
+    
+    def update_mode_display(self):
+        """Update the toggle display based on current mode"""
+        if self.current_mode == "JW":
+            # Highlight JW button in green
+            self.jw_btn.configure(bg='#4CAF50', fg='white', activebackground='#45a049')
+            self.cw_btn.configure(bg='#e0e0e0', fg='#666666', activebackground='#d0d0d0')
+        else:
+            # Highlight CW/CE button in green
+            self.cw_btn.configure(bg='#4CAF50', fg='white', activebackground='#45a049')
+            self.jw_btn.configure(bg='#e0e0e0', fg='#666666', activebackground='#d0d0d0')
+
     def create_test_tab(self):
         """Create the test generation tab"""
         test_frame = ttk.Frame(self.notebook, style='Card.TFrame')
@@ -829,9 +995,10 @@ that best answers the question or completes the statement. Show all work.
         c = canvas.Canvas(filepath, pagesize=letter)
         width, height = letter
         
-        # Header
+        # Header with dynamic exam title
         c.setFont("Helvetica-Bold", 16)
-        c.drawString(50, height - 50, "ANSWER KEY")
+        exam_title = self.get_exam_title()
+        c.drawString(50, height - 50, f"{exam_title} - ANSWER KEY")
         
         c.setFont("Helvetica", 12)
         c.drawString(50, height - 80, f"Name: {self.current_test['name']}")
@@ -912,7 +1079,7 @@ that best answers the question or completes the statement. Show all work.
                 c.showPage()
                 # Reset header for new page
                 c.setFont("Helvetica-Bold", 16)
-                title_text = "ANSWER KEY (continued)"
+                title_text = f"{self.get_exam_title()} - ANSWER KEY (continued)"
                 title_width = c.stringWidth(title_text, "Helvetica-Bold", 16)
                 c.drawString((width - title_width) / 2, height - 40, title_text)
                 
@@ -1054,9 +1221,9 @@ that best answers the question or completes the statement. Show all work.
         c = canvas.Canvas(filepath, pagesize=letter)
         width, height = letter
         
-        # Header - Journey-Level Proficiency Exam
+        # Header - Dynamic based on database mode
         c.setFont("Helvetica-Bold", 16)
-        title_text = "Journey-Level Proficiency Exam"
+        title_text = self.get_exam_title()
         title_width = c.stringWidth(title_text, "Helvetica-Bold", 16)
         c.drawString((width - title_width) / 2, height - 40, title_text)
         
@@ -1159,7 +1326,7 @@ that best answers the question or completes the statement. Show all work.
                 c.showPage()
                 # Reset header for new page
                 c.setFont("Helvetica-Bold", 16)
-                title_text = "Journey-Level Proficiency Exam (continued)"
+                title_text = f"{self.get_exam_title()} (continued)"
                 title_width = c.stringWidth(title_text, "Helvetica-Bold", 16)
                 c.drawString((width - title_width) / 2, height - 40, title_text)
                 
@@ -1332,10 +1499,11 @@ that best answers the question or completes the statement. Show all work.
         """Clear the selected image"""
         self.image_path_var.set("")
 
-    def open_add_question_dialog(self):
-        """Open a popup dialog to add a new question"""
+    def open_add_question_dialog(self, edit_data=None):
+        """Open a popup dialog to add a new question or edit existing one"""
+        is_editing = edit_data is not None
         dialog = tk.Toplevel(self.root)
-        dialog.title("Add New Question")
+        dialog.title("Edit Question" if is_editing else "Add New Question")
         dialog.geometry("800x580")  # Optimized height - no wasted space
         dialog.resizable(True, True)
         dialog.transient(self.root)
@@ -1354,7 +1522,8 @@ that best answers the question or completes the statement. Show all work.
         content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
         
         # Header
-        ttk.Label(content_frame, text="➕ Add New Question", style='Heading.TLabel').pack(pady=(0, 12))
+        header_text = "✏️ Edit Question" if is_editing else "➕ Add New Question"
+        ttk.Label(content_frame, text=header_text, style='Heading.TLabel').pack(pady=(0, 12))
         
         # Form frame - tight layout
         form_frame = ttk.Frame(content_frame, style='Card.TFrame')
@@ -1431,11 +1600,38 @@ that best answers the question or completes the statement. Show all work.
         ttk.Button(form_frame, text="📁 Browse", command=browse_image, style="Primary.TButton").grid(row=7, column=2, pady=6, padx=(8, 4))
         ttk.Button(form_frame, text="🗑️ Clear", command=clear_image, style="Warning.TButton").grid(row=7, column=3, pady=6, padx=(4, 12))
         
+        # Populate fields if editing
+        if is_editing:
+            question_id, question_text, answer, category, choice_a, choice_b, choice_c, choice_d, image_path = edit_data
+            
+            # Populate question text
+            question_entry.insert(1.0, question_text)
+            
+            # Populate answer
+            answer_entry.insert(0, answer)
+            
+            # Populate category
+            category_entry.insert(0, category)
+            
+            # Populate choices
+            if choice_a:
+                choice_a_entry.insert(0, choice_a)
+            if choice_b:
+                choice_b_entry.insert(0, choice_b)
+            if choice_c:
+                choice_c_entry.insert(0, choice_c)
+            if choice_d:
+                choice_d_entry.insert(0, choice_d)
+            
+            # Populate image path
+            if image_path:
+                image_var.set(image_path)
+        
         # Buttons - tight spacing, no wasted space
         button_frame = ttk.Frame(content_frame)
         button_frame.pack(pady=5)
         
-        def add_question_from_dialog():
+        def save_question_from_dialog():
             question = question_entry.get(1.0, tk.END).strip()
             answer = answer_entry.get().strip().upper()
             category = category_entry.get().strip()
@@ -1463,20 +1659,36 @@ that best answers the question or completes the statement. Show all work.
             
             try:
                 cursor = self.conn.cursor()
-                cursor.execute('''
-                    INSERT INTO questions (question, answer, category, choice_a, choice_b, choice_c, choice_d, image_path, created_date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                ''', (question, answer, category, choice_a, choice_b, choice_c, choice_d, image_path))
+                
+                if is_editing:
+                    # Update existing question
+                    question_id = edit_data[0]
+                    cursor.execute('''
+                        UPDATE questions 
+                        SET question = ?, answer = ?, category = ?, choice_a = ?, choice_b = ?, choice_c = ?, choice_d = ?, image_path = ?
+                        WHERE id = ?
+                    ''', (question, answer, category, choice_a, choice_b, choice_c, choice_d, image_path, question_id))
+                    success_message = "Question updated successfully!"
+                else:
+                    # Insert new question
+                    cursor.execute('''
+                        INSERT INTO questions (question, answer, category, choice_a, choice_b, choice_c, choice_d, image_path, created_date)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    ''', (question, answer, category, choice_a, choice_b, choice_c, choice_d, image_path))
+                    success_message = "Question added successfully!"
+                
                 self.conn.commit()
                 
-                messagebox.showinfo("Success", "Question added successfully!")
+                messagebox.showinfo("Success", success_message)
                 self.load_questions()  # Refresh the main list
                 dialog.destroy()
                 
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to add question: {e}")
+                action = "update" if is_editing else "add"
+                messagebox.showerror("Error", f"Failed to {action} question: {e}")
         
-        ttk.Button(button_frame, text="➕ Add Question", command=add_question_from_dialog, style="Success.TButton").pack(side=tk.LEFT, padx=5)
+        button_text = "💾 Update Question" if is_editing else "➕ Add Question"
+        ttk.Button(button_frame, text=button_text, command=save_question_from_dialog, style="Success.TButton").pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="❌ Cancel", command=dialog.destroy, style="Warning.TButton").pack(side=tk.LEFT, padx=5)
 
     def add_question(self):
@@ -1576,7 +1788,7 @@ that best answers the question or completes the statement. Show all work.
             ))
     
     def edit_question(self):
-        """Edit selected question"""
+        """Edit selected question using the add question dialog"""
         selected = self.questions_tree.selection()
         if not selected:
             messagebox.showerror("Error", "Please select a question to edit")
@@ -1585,112 +1797,16 @@ that best answers the question or completes the statement. Show all work.
         item = self.questions_tree.item(selected[0])
         question_id = item['values'][0]
         
-        # Get full question data
+        # Get full question data including all choice fields
         cursor = self.conn.cursor()
-        cursor.execute("SELECT question, answer, category, image_path FROM questions WHERE id = ?", (question_id,))
+        cursor.execute("SELECT id, question, answer, category, choice_a, choice_b, choice_c, choice_d, image_path FROM questions WHERE id = ?", (question_id,))
         data = cursor.fetchone()
         
         if data:
-            # Create edit window
-            self.create_edit_window(question_id, data)
+            # Open add question dialog in edit mode
+            self.open_add_question_dialog(edit_data=data)
     
-    def create_edit_window(self, question_id, data):
-        """Create edit question window"""
-        edit_window = tk.Toplevel(self.root)
-        edit_window.title("Edit Question")
-        edit_window.geometry("600x400")
-        edit_window.transient(self.root)
-        edit_window.grab_set()
-        
-        # Question field
-        ttk.Label(edit_window, text="Question:").pack(anchor="w", padx=10, pady=(10,2))
-        question_text = tk.Text(edit_window, height=4, width=70)
-        question_text.pack(padx=10, pady=2)
-        question_text.insert(1.0, data[0])
-        
-        # Answer field
-        ttk.Label(edit_window, text="Answer:").pack(anchor="w", padx=10, pady=(10,2))
-        answer_text = tk.Text(edit_window, height=3, width=70)
-        answer_text.pack(padx=10, pady=2)
-        answer_text.insert(1.0, data[1])
-        
-        # Category field
-        ttk.Label(edit_window, text="Category:").pack(anchor="w", padx=10, pady=(10,2))
-        category_entry = ttk.Entry(edit_window, width=30)
-        category_entry.pack(anchor="w", padx=10, pady=2)
-        category_entry.insert(0, data[2])
-        
-        # Image field
-        ttk.Label(edit_window, text="Image (optional):").pack(anchor="w", padx=10, pady=(10,2))
-        image_frame = ttk.Frame(edit_window)
-        image_frame.pack(fill=tk.X, padx=10, pady=2)
-        
-        image_path_var = tk.StringVar(value=data[3] or "")
-        image_entry = ttk.Entry(image_frame, textvariable=image_path_var, width=40, state="readonly")
-        image_entry.pack(side=tk.LEFT, padx=(0,5))
-        
-        def select_edit_image():
-            filetypes = [
-                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp"),
-                ("All files", "*.*")
-            ]
-            filepath = filedialog.askopenfilename(title="Select Image", filetypes=filetypes)
-            if filepath:
-                # Copy to images directory with unique filename
-                filename = os.path.basename(filepath)
-                name, ext = os.path.splitext(filename)
-                counter = 1
-                new_filepath = os.path.join(self.images_dir, filename)
-                
-                while os.path.exists(new_filepath):
-                    new_filename = f"{name}_{counter}{ext}"
-                    new_filepath = os.path.join(self.images_dir, new_filename)
-                    counter += 1
-                
-                try:
-                    if filepath != new_filepath:
-                        shutil.copy2(filepath, new_filepath)
-                    # Store relative path
-                    relative_path = os.path.relpath(new_filepath, get_application_path())
-                    image_path_var.set(relative_path)
-                except Exception as e:
-                    messagebox.showerror("Error", f"Failed to copy image: {str(e)}")
-        
-        def clear_edit_image():
-            image_path_var.set("")
-        
-        ttk.Button(image_frame, text="Browse", command=select_edit_image).pack(side=tk.LEFT, padx=2)
-        ttk.Button(image_frame, text="Clear", command=clear_edit_image).pack(side=tk.LEFT, padx=2)
-        
-        # Buttons
-        button_frame = ttk.Frame(edit_window)
-        button_frame.pack(pady=20)
-        
-        def save_changes():
-            new_question = question_text.get(1.0, tk.END).strip()
-            new_answer = answer_text.get(1.0, tk.END).strip()
-            new_category = category_entry.get().strip()
-            new_image_path = image_path_var.get().strip() or None
-            
-            if not all([new_question, new_answer, new_category]):
-                messagebox.showerror("Error", "Please fill in all required fields")
-                return
-            
-            cursor = self.conn.cursor()
-            cursor.execute("""
-                UPDATE questions 
-                SET question = ?, answer = ?, category = ?, image_path = ? 
-                WHERE id = ?
-            """, (new_question, new_answer, new_category, new_image_path, question_id))
-            self.conn.commit()
-            
-            edit_window.destroy()
-            self.load_questions()
-            messagebox.showinfo("Success", "Question updated successfully")
-        
-        ttk.Button(button_frame, text="Save Changes", command=save_changes).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=edit_window.destroy).pack(side=tk.LEFT, padx=5)
-    
+
     def delete_question(self):
         """Delete selected question"""
         selected = self.questions_tree.selection()
@@ -1710,15 +1826,22 @@ that best answers the question or completes the statement. Show all work.
             messagebox.showinfo("Success", "Question deleted successfully")
     
     def load_category_settings(self):
-        """Load category settings from database with grid layout"""
+        """Load category settings from database with grid layout and min/max suggestions"""
         # Clear existing widgets (all of them, not just frames)
         for widget in self.settings_frame.winfo_children():
             widget.destroy()
         
-        # Get unique categories from questions
+        # Get unique categories from questions with counts
         cursor = self.conn.cursor()
-        cursor.execute("SELECT DISTINCT category FROM questions ORDER BY category")
-        categories = [row[0] for row in cursor.fetchall()]
+        cursor.execute("SELECT category, COUNT(*) FROM questions GROUP BY category ORDER BY category")
+        category_data = cursor.fetchall()
+        categories = [row[0] for row in category_data]
+        
+        # Create category count dictionary
+        category_counts = {row[0]: row[1] for row in category_data}
+        
+        # Store category counts as instance variable for validation
+        self.category_counts = category_counts
         
         # Get existing settings
         cursor.execute("SELECT category, percentage FROM category_settings")
@@ -1727,33 +1850,58 @@ that best answers the question or completes the statement. Show all work.
         self.category_vars = {}
         
         if categories:
-            # Configure grid layout - 3 categories per row for better space utilization
-            categories_per_row = 3
+            # Configure grid layout - 2 categories per row for better readability with suggestions
+            categories_per_row = 2
             
             for i, category in enumerate(categories):
                 row = i // categories_per_row
                 col = i % categories_per_row
                 
                 # Create frame for this category
-                category_frame = ttk.Frame(self.settings_frame, padding=5)
-                category_frame.grid(row=row, column=col, padx=10, pady=5, sticky="ew")
+                category_frame = ttk.Frame(self.settings_frame, padding=8)
+                category_frame.grid(row=row, column=col, padx=15, pady=8, sticky="ew")
                 
-                # Category label
-                ttk.Label(category_frame, text=f"{category}:", width=12, anchor="w").grid(row=0, column=0, sticky="w")
+                # Calculate max percentage based on available questions
+                available_questions = category_counts[category]
+                # Max percentage: can't exceed what's available for a 50-question test
+                max_percentage = min(100, (available_questions * 2))  # 2% per question available
+                
+                # Category label with question count
+                category_label = ttk.Label(category_frame, text=f"{category} ({available_questions} questions):", 
+                                         width=20, anchor="w", font=("Segoe UI", 10, "bold"))
+                category_label.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 3))
+                
+                # Percentage input frame
+                input_frame = ttk.Frame(category_frame)
+                input_frame.grid(row=1, column=0, columnspan=3, sticky="w")
                 
                 # Percentage spinbox
                 var = tk.IntVar(value=settings.get(category, 0))
                 self.category_vars[category] = var
                 
-                spinbox = tk.Spinbox(category_frame, from_=0, to=100, width=8, textvariable=var)
-                spinbox.grid(row=0, column=1, padx=(5, 2))
+                spinbox = tk.Spinbox(input_frame, from_=0, to=100, width=8, textvariable=var,
+                                   validate="key", validatecommand=(self.root.register(self.validate_percentage_total), '%P'),
+                                   command=self.update_percentage_total)
+                spinbox.grid(row=0, column=0, padx=(0, 5))
+                
+                # Also update total when variable changes (for direct var.set() calls)
+                var.trace_add("write", lambda *args: self.update_percentage_total())
                 
                 # Percentage label
-                ttk.Label(category_frame, text="%").grid(row=0, column=2, sticky="w")
+                ttk.Label(input_frame, text="%").grid(row=0, column=1, sticky="w")
+                
+                # Maximum percentage label (in gray)
+                suggestion_text = f"(Max: {max_percentage}%)"
+                suggestion_label = ttk.Label(input_frame, text=suggestion_text, 
+                                           font=("Segoe UI", 9), foreground="#6c757d")
+                suggestion_label.grid(row=0, column=2, padx=(10, 0), sticky="w")
             
             # Configure column weights for even distribution
             for col in range(categories_per_row):
                 self.settings_frame.columnconfigure(col, weight=1)
+            
+            # Add total percentage display at the bottom
+            self.add_percentage_total_display()
                 
         else:
             # No categories message
@@ -1766,15 +1914,129 @@ that best answers the question or completes the statement. Show all work.
         if hasattr(self, 'category_canvas'):
             self.category_canvas.configure(scrollregion=self.category_canvas.bbox("all"))
     
+    def add_percentage_total_display(self):
+        """Add a display showing current total percentage"""
+        # Separator
+        separator = ttk.Separator(self.settings_frame, orient='horizontal')
+        separator.grid(row=999, column=0, columnspan=2, sticky="ew", padx=15, pady=15)
+        
+        # Total frame
+        total_frame = ttk.Frame(self.settings_frame, padding=10)
+        total_frame.grid(row=1000, column=0, columnspan=2, pady=10)
+        
+        # Total label
+        ttk.Label(total_frame, text="Total Percentage:", font=("Segoe UI", 11, "bold")).pack(side=tk.LEFT)
+        
+        # Total value label (will be updated dynamically)
+        self.total_percentage_label = ttk.Label(total_frame, text="0%", font=("Segoe UI", 11, "bold"))
+        self.total_percentage_label.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Status message label
+        self.total_status_label = ttk.Label(total_frame, text="", font=("Segoe UI", 10))
+        self.total_status_label.pack(side=tk.LEFT, padx=(15, 0))
+        
+        # Update the total immediately
+        self.update_percentage_total()
+    
+    def validate_percentage_total(self, value):
+        """Validate percentage input and update total display"""
+        # Allow empty string during editing
+        if value == "":
+            return True
+        
+        try:
+            # Check if it's a valid number
+            int(value)
+            # Update total after a short delay to allow UI to update
+            self.root.after(10, self.update_percentage_total)
+            return True
+        except ValueError:
+            return False
+    
+    def update_percentage_total(self):
+        """Update the total percentage display with category validation"""
+        if not hasattr(self, 'category_vars') or not hasattr(self, 'total_percentage_label'):
+            return
+        
+        # Safely get values, treating empty strings as 0
+        def safe_get(var):
+            try:
+                return var.get()
+            except:
+                return 0
+        
+        total = sum(safe_get(var) for var in self.category_vars.values())
+        self.total_percentage_label.config(text=f"{total}%")
+        
+        # Check for individual category overages
+        category_warnings = []
+        if hasattr(self, 'category_counts'):
+            for category, var in self.category_vars.items():
+                current_percentage = safe_get(var)
+                available_questions = self.category_counts.get(category, 0)
+                max_percentage = min(100, (available_questions * 2))  # 2% per question available
+                
+                if current_percentage > max_percentage:
+                    questions_needed = (current_percentage * 50) // 100  # Calculate questions needed for this %
+                    category_warnings.append(f"{category}: {current_percentage}% needs {questions_needed} questions but only {available_questions} available")
+        
+        # Update status message and color based on both total and category limits
+        if category_warnings:
+            warning_text = "⚠ Category limits exceeded: " + "; ".join(category_warnings)
+            self.total_status_label.config(text=warning_text, foreground="#dc3545")
+        elif total == 100:
+            self.total_status_label.config(text="✓ Perfect!", foreground="#28a745")
+        elif total < 100:
+            self.total_status_label.config(text=f"⚠ Need {100-total}% more", foreground="#fd7e14")
+        else:
+            self.total_status_label.config(text=f"⚠ {total-100}% over limit", foreground="#dc3545")
+    
     def save_category_settings(self):
-        """Save category percentage settings"""
+        """Save category percentage settings with enhanced validation"""
         if not hasattr(self, 'category_vars'):
             return
         
+        # Safely get values, treating empty strings as 0
+        def safe_get(var):
+            try:
+                return var.get()
+            except:
+                return 0
+        
         # Check total percentage
-        total = sum(var.get() for var in self.category_vars.values())
+        total = sum(safe_get(var) for var in self.category_vars.values())
+        
+        # Enhanced validation messages
         if total != 100:
-            if not messagebox.askyesno("Warning", f"Total percentage is {total}%, not 100%. Save anyway?"):
+            if total < 100:
+                message = f"Total is only {total}% (need {100-total}% more).\n\nThe test generator needs exactly 100% to create a complete 50-question test. Would you like to save anyway?"
+            else:
+                message = f"Total is {total}% ({total-100}% over 100%).\n\nThis may cause issues with test generation. Would you like to save anyway?"
+            
+            if not messagebox.askyesno("Percentage Total Warning", message):
+                return
+        
+        # Check if any category exceeds safe limits
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT category, COUNT(*) FROM questions GROUP BY category")
+        category_counts = {row[0]: row[1] for row in cursor.fetchall()}
+        
+        warnings = []
+        for category, var in self.category_vars.items():
+            percentage = safe_get(var)
+            if percentage > 0:
+                available_questions = category_counts.get(category, 0)
+                max_percentage = min(100, (available_questions * 2))  # Same calculation as display
+                
+                if percentage > max_percentage:
+                    questions_needed = (percentage * 50) // 100
+                    warnings.append(f"• {category}: {percentage}% needs {questions_needed} questions but only {available_questions} available")
+        
+        if warnings:
+            warning_message = "Some categories may not have enough questions:\n\n" + "\n".join(warnings)
+            warning_message += f"\n\nThe system will use available questions and fill the remainder from other categories. Continue?"
+            
+            if not messagebox.askyesno("Category Capacity Warning", warning_message):
                 return
         
         cursor = self.conn.cursor()
@@ -1784,7 +2046,7 @@ that best answers the question or completes the statement. Show all work.
         
         # Insert new settings
         for category, var in self.category_vars.items():
-            percentage = var.get()
+            percentage = safe_get(var)
             if percentage > 0:
                 cursor.execute("INSERT INTO category_settings (category, percentage) VALUES (?, ?)",
                              (category, percentage))
