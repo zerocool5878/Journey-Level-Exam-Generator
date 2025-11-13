@@ -281,7 +281,8 @@ class TestGeneratorApp:
     
     def show_about(self):
         """Show about dialog"""
-        about_text = """Journey-Level Exam Generator v1.0.6
+        from version import VERSION
+        about_text = f"""Journey-Level Exam Generator v{VERSION}
 
 Professional desktop application for generating journey-level proficiency exams.
 
