@@ -147,6 +147,14 @@ class AutoUpdater:
         progress_label = tk.Label(progress_frame, text="Preparing download...", font=("Arial", 10))
         progress_label.pack(pady=5)
         
+        def update_progress(text):
+            """Thread-safe progress update"""
+            try:
+                progress_label.config(text=text)
+                dialog.update_idletasks()
+            except:
+                pass  # Dialog might be closed
+        
         def update_now():
             # Disable buttons
             update_btn.config(state=tk.DISABLED)
@@ -154,11 +162,10 @@ class AutoUpdater:
             
             # Show progress
             progress_frame.pack(fill=tk.X, pady=(10, 0))
-            progress_label.config(text="Downloading update (52.8 MB)...")
-            dialog.update()
+            update_progress("Starting download...")
             
             # Start download in separate thread
-            Thread(target=lambda: self.download_and_install_update(release_data, dialog, progress_label), 
+            Thread(target=lambda: self.download_and_install_update(release_data, dialog, update_progress), 
                   daemon=True).start()
         
         def skip_update():
@@ -177,7 +184,7 @@ class AutoUpdater:
         y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
         dialog.geometry(f"+{x}+{y}")
     
-    def download_and_install_update(self, release_data, dialog, progress_label=None):
+    def download_and_install_update(self, release_data, dialog, progress_callback=None):
         """Download and install the update"""
         try:
             # Find the executable in release assets
@@ -188,17 +195,16 @@ class AutoUpdater:
                     break
             
             if not exe_asset:
-                messagebox.showerror("Update Failed", 
-                                   "Could not find executable in release assets.")
-                dialog.destroy()
+                dialog.after(0, lambda: messagebox.showerror("Update Failed", 
+                                   "Could not find executable in release assets."))
+                dialog.after(100, dialog.destroy)
                 return
             
             # Download the new executable
             download_url = exe_asset['browser_download_url']
             
-            if progress_label:
-                progress_label.config(text="Downloading update...")
-                dialog.update()
+            if progress_callback:
+                progress_callback("Downloading update...")
             
             # Create temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix='.exe') as temp_file:
@@ -210,22 +216,23 @@ class AutoUpdater:
             
             total_size = int(response.headers.get('content-length', 0))
             downloaded = 0
+            last_update = 0
             
             with open(temp_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=81920):  # 80KB chunks for faster download
                     if chunk:
                         f.write(chunk)
                         downloaded += len(chunk)
-                        if progress_label and total_size > 0:
+                        # Update UI every 1MB to avoid too many updates
+                        if progress_callback and total_size > 0 and (downloaded - last_update) > 1048576:
                             percent = (downloaded / total_size) * 100
                             mb_downloaded = downloaded / (1024 * 1024)
                             mb_total = total_size / (1024 * 1024)
-                            progress_label.config(text=f"Downloading: {mb_downloaded:.1f}/{mb_total:.1f} MB ({percent:.0f}%)")
-                            dialog.update()
+                            progress_callback(f"Downloading: {mb_downloaded:.1f}/{mb_total:.1f} MB ({percent:.0f}%)")
+                            last_update = downloaded
             
-            if progress_label:
-                progress_label.config(text="Installing update...")
-                dialog.update()
+            if progress_callback:
+                progress_callback("Installing update...")
             
             # Get current executable path
             current_exe = sys.executable if getattr(sys, 'frozen', False) else __file__

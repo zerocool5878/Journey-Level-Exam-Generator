@@ -1,7 +1,7 @@
 # Version Configuration for Journey-Level Exam Generator
 
 # Current version (update this when releasing new versions)
-VERSION = "1.0.11"
+VERSION = "1.0.12"
 
 # GitHub repository information
 REPO_OWNER = "zerocool5878"
