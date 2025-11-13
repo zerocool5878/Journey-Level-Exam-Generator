@@ -1,4 +1,4 @@
-# Journey-Level Exam Generator v1.0.10
+# Journey-Level Exam Generator v1.0.11
 
 ## 🚀 Quick Start
 1. Download `Journey-Level-Exam-Generator.exe`
@@ -101,7 +101,7 @@ The standalone executable contains:
 - **Manual Updates**: Download new version and replace the EXE
 
 ## 📝 Version Information
-- **Version**: 1.0.10
+- **Version**: 1.0.11
 - **Build Date**: November 2025
 - **Python Version**: 3.13
 - **Architecture**: 64-bit Windows

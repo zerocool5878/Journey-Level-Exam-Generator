@@ -92,7 +92,7 @@ class AutoUpdater:
         # Create update dialog
         dialog = tk.Toplevel()
         dialog.title("Update Available")
-        dialog.geometry("600x500")
+        dialog.geometry("650x600")  # Increased height to show buttons properly
         dialog.resizable(True, True)
         dialog.transient()
         dialog.grab_set()
@@ -144,8 +144,8 @@ class AutoUpdater:
         
         # Progress bar frame (initially hidden)
         progress_frame = tk.Frame(main_frame)
-        progress_label = tk.Label(progress_frame, text="Downloading update...")
-        progress_label.pack()
+        progress_label = tk.Label(progress_frame, text="Preparing download...", font=("Arial", 10))
+        progress_label.pack(pady=5)
         
         def update_now():
             # Disable buttons
@@ -154,9 +154,11 @@ class AutoUpdater:
             
             # Show progress
             progress_frame.pack(fill=tk.X, pady=(10, 0))
+            progress_label.config(text="Downloading update (52.8 MB)...")
+            dialog.update()
             
             # Start download in separate thread
-            Thread(target=lambda: self.download_and_install_update(release_data, dialog), 
+            Thread(target=lambda: self.download_and_install_update(release_data, dialog, progress_label), 
                   daemon=True).start()
         
         def skip_update():
@@ -175,7 +177,7 @@ class AutoUpdater:
         y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
         dialog.geometry(f"+{x}+{y}")
     
-    def download_and_install_update(self, release_data, dialog):
+    def download_and_install_update(self, release_data, dialog, progress_label=None):
         """Download and install the update"""
         try:
             # Find the executable in release assets
@@ -194,22 +196,36 @@ class AutoUpdater:
             # Download the new executable
             download_url = exe_asset['browser_download_url']
             
+            if progress_label:
+                progress_label.config(text="Downloading update...")
+                dialog.update()
+            
             # Create temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix='.exe') as temp_file:
                 temp_path = temp_file.name
             
             # Download with progress
-            response = requests.get(download_url, stream=True)
+            response = requests.get(download_url, stream=True, timeout=60)
             response.raise_for_status()
             
             total_size = int(response.headers.get('content-length', 0))
             downloaded = 0
             
             with open(temp_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
+                for chunk in response.iter_content(chunk_size=81920):  # 80KB chunks for faster download
                     if chunk:
                         f.write(chunk)
                         downloaded += len(chunk)
+                        if progress_label and total_size > 0:
+                            percent = (downloaded / total_size) * 100
+                            mb_downloaded = downloaded / (1024 * 1024)
+                            mb_total = total_size / (1024 * 1024)
+                            progress_label.config(text=f"Downloading: {mb_downloaded:.1f}/{mb_total:.1f} MB ({percent:.0f}%)")
+                            dialog.update()
+            
+            if progress_label:
+                progress_label.config(text="Installing update...")
+                dialog.update()
             
             # Get current executable path
             current_exe = sys.executable if getattr(sys, 'frozen', False) else __file__
