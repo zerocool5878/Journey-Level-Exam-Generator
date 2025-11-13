@@ -9,6 +9,7 @@ import shutil
 import uuid
 import sys
 import json
+import time
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
@@ -34,6 +35,17 @@ def get_application_path():
         # Running as Python script
         return os.path.dirname(os.path.abspath(__file__))
 
+def get_resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        # Not running as PyInstaller bundle, use regular path
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    
+    return os.path.join(base_path, relative_path)
+
 class TestGeneratorApp:
     def __init__(self, root):
         self.root = root
@@ -48,7 +60,7 @@ class TestGeneratorApp:
         
         # Set the lightning bolt icon
         try:
-            icon_path = os.path.join(get_application_path(), 'lightning_icon.ico')
+            icon_path = get_resource_path('lightning_icon.ico')
             if os.path.exists(icon_path):
                 self.root.iconbitmap(icon_path)
         except Exception as e:
@@ -202,13 +214,24 @@ class TestGeneratorApp:
             print(f"Error fixing image paths: {e}")
     
     def get_image_full_path(self, relative_path):
-        """Convert relative image path to full path"""
+        """Convert relative image path to full path
+        
+        This function handles both:
+        1. Bundled resources in PyInstaller (sys._MEIPASS)
+        2. User images in the working directory (where EXE is located)
+        """
         if not relative_path:
             return None
         if os.path.isabs(relative_path):
             return relative_path
         
-        # First try the path as given
+        # For PyInstaller, check the bundled images first (in _MEIPASS)
+        if getattr(sys, 'frozen', False):
+            bundled_path = get_resource_path(relative_path)
+            if os.path.exists(bundled_path):
+                return bundled_path
+        
+        # Then try the user's working directory (where databases are)
         full_path = os.path.join(get_application_path(), relative_path)
         if os.path.exists(full_path):
             return full_path
@@ -308,13 +331,20 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         # Create images directory if it doesn't exist
         # Use the actual executable directory, not the temporary PyInstaller directory
         self.images_dir = os.path.join(get_application_path(), 'images')
-        if not os.path.exists(self.images_dir):
+        
+        # Check if folder exists and if it has any files (not just empty from build)
+        folder_exists = os.path.exists(self.images_dir)
+        has_files = folder_exists and len(os.listdir(self.images_dir)) > 0
+        
+        if not folder_exists:
+            # Truly creating new folder
             os.makedirs(self.images_dir)
             messagebox.showinfo("Images Folder Created", 
                               f"Created 'images' folder at:\n{self.images_dir}\n\n" + 
                               "All question images will be automatically copied here when you select them.")
             print(f"Created images directory: {self.images_dir}")
         else:
+            # Folder exists (may be empty from build)
             print(f"Using existing images directory: {self.images_dir}")
         
         # Questions table
@@ -2354,21 +2384,22 @@ that best answers the question or completes the statement. Show all work.
             self.conn.close()
 
 def main():
-    # DISABLED: Auto-updater temporarily disabled during development
-    # Check for updates BEFORE opening the main window (only for .exe builds)
-    # if getattr(sys, 'frozen', False):  # Only check when running as exe
-    #     try:
-    #         from auto_updater import startup_update_check
-    #         
-    #         # This will show update dialog if update is available
-    #         # If update is installed, the app will restart and never reach here
-    #         has_update, release_data = startup_update_check()
-    #         
-    #         # If we reach here, either no update or user declined update
-    #         
-    #     except Exception as e:
-    #         print(f"Update check failed: {e}")
-    #         # Continue with normal startup if update check fails
+    # Auto-updater now checks version properly and only shows dialog if newer version exists
+    # Check for updates AFTER main window opens (non-blocking, in background)
+    def delayed_update_check():
+        """Check for updates 5 seconds after app starts (non-blocking)"""
+        if getattr(sys, 'frozen', False):  # Only check when running as exe
+            time.sleep(5)  # Wait 5 seconds after app starts
+            try:
+                from auto_updater import startup_update_check
+                
+                # This will show update dialog if update is available
+                # If update is installed, the app will restart
+                has_update, release_data = startup_update_check()
+                
+            except Exception as e:
+                print(f"Update check failed: {e}")
+                # Silently fail - don't interrupt user experience
     
     # Create main application window
     root = tk.Tk()
@@ -2377,6 +2408,9 @@ def main():
     # Configure styles
     style = ttk.Style()
     style.configure("Generate.TButton", font=("Arial", 12, "bold"))
+    
+    # Start delayed update check in background thread (won't block app)
+    Thread(target=delayed_update_check, daemon=True).start()
     
     root.mainloop()
 

@@ -20,7 +20,13 @@ import time
 
 class AutoUpdater:
     def __init__(self):
-        self.current_version = "1.0.6"
+        # Import version from version.py
+        try:
+            from version import VERSION
+            self.current_version = VERSION
+        except ImportError:
+            self.current_version = "1.0.8"  # Fallback version
+        
         self.repo_owner = "zerocool5878"
         self.repo_name = "Journey-Level-Exam-Generator"
         self.github_api_url = f"https://api.github.com/repos/{self.repo_owner}/{self.repo_name}/releases/latest"
