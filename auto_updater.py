@@ -247,14 +247,26 @@ class AutoUpdater:
             # Replace with new version
             shutil.move(temp_path, new_exe_path)
             
-            # Close current application and start new one
-            dialog.destroy()
-            messagebox.showinfo("Update Complete", 
-                              "Update installed successfully! The application will now restart.")
+            # Close dialog first
+            try:
+                dialog.destroy()
+            except:
+                pass
             
-            # Start new version and exit current
-            subprocess.Popen([new_exe_path])
-            sys.exit(0)
+            # Start new version BEFORE showing message (so it launches immediately)
+            subprocess.Popen([new_exe_path], cwd=current_dir)
+            
+            # Show quick message and exit
+            root = tk.Tk()
+            root.withdraw()  # Hide the window
+            root.after(100, lambda: [
+                messagebox.showinfo("Update Complete", 
+                                  "Update installed successfully! The application is now restarting.", 
+                                  parent=root),
+                root.quit(),
+                os._exit(0)  # Force exit the entire process
+            ])
+            root.mainloop()
             
         except Exception as e:
             # Restore backup if something went wrong
