@@ -351,6 +351,45 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         
         self.conn.commit()
     
+    def create_styled_button(self, parent, text, command, style_type="primary"):
+        """Create a styled tk.Button that works reliably in PyInstaller"""
+        style_configs = {
+            "primary": {"bg": "#2E86AB", "fg": "white", "activebackground": "#1F5F79", "activeforeground": "white"},
+            "success": {"bg": "#2E8B57", "fg": "white", "activebackground": "#256B47", "activeforeground": "white"},
+            "warning": {"bg": "#FF8C42", "fg": "white", "activebackground": "#E6732A", "activeforeground": "white"},
+            "danger": {"bg": "#DC3545", "fg": "white", "activebackground": "#C82333", "activeforeground": "white"},
+        }
+        
+        config = style_configs.get(style_type, style_configs["primary"])
+        
+        button = tk.Button(
+            parent,
+            text=text,
+            command=command,
+            bg=config["bg"],
+            fg=config["fg"],
+            activebackground=config["activebackground"],
+            activeforeground=config["activeforeground"],
+            font=("Segoe UI", 10, "bold"),
+            relief=tk.RAISED,
+            borderwidth=2,
+            padx=15,
+            pady=8,
+            cursor="hand2"
+        )
+        
+        # Add hover effects
+        def on_enter(e):
+            button['background'] = config["activebackground"]
+        
+        def on_leave(e):
+            button['background'] = config["bg"]
+        
+        button.bind("<Enter>", on_enter)
+        button.bind("<Leave>", on_leave)
+        
+        return button
+    
     def configure_modern_style(self):
         """Configure modern, polished styling for the application"""
         style = ttk.Style()
@@ -595,9 +634,9 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         self.name_entry = ttk.Entry(name_frame, style='Modern.TEntry', width=40, justify='center')
         self.name_entry.pack(pady=(0, 5))
         
-        # Generate test button
-        ttk.Button(content_frame, text="🎯 Generate Test (50 Questions)", 
-                  command=self.generate_test, style="Primary.TButton").pack(pady=10)
+        # Generate test button using styled tk.Button
+        self.create_styled_button(content_frame, "🎯 Generate Test (50 Questions)", 
+                  self.generate_test, "primary").pack(pady=10)
         
         # Test preview section
         preview_section = ttk.Frame(content_frame, style='Card.TFrame')
@@ -625,12 +664,12 @@ GitHub: github.com/zerocool5878/Journey-Level-Exam-Generator"""
         button_frame = ttk.Frame(content_frame)
         button_frame.pack(pady=5)
         
-        ttk.Button(button_frame, text="📄 Export Test to PDF", 
-                  command=self.export_to_pdf, style="Success.TButton").pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="📋 Export Answer Key", 
-                  command=self.export_answer_key, style="Success.TButton").pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="🗑️ Clear Preview", 
-                  command=self.clear_preview, style="Warning.TButton").pack(side=tk.LEFT, padx=5)
+        self.create_styled_button(button_frame, "📄 Export Test to PDF", 
+                  self.export_to_pdf, "success").pack(side=tk.LEFT, padx=5)
+        self.create_styled_button(button_frame, "📋 Export Answer Key", 
+                  self.export_answer_key, "success").pack(side=tk.LEFT, padx=5)
+        self.create_styled_button(button_frame, "🗑️ Clear Preview", 
+                  self.clear_preview, "warning").pack(side=tk.LEFT, padx=5)
     
     def create_questions_tab(self):
         """Create the question management tab"""
@@ -2315,20 +2354,21 @@ that best answers the question or completes the statement. Show all work.
             self.conn.close()
 
 def main():
+    # DISABLED: Auto-updater temporarily disabled during development
     # Check for updates BEFORE opening the main window (only for .exe builds)
-    if getattr(sys, 'frozen', False):  # Only check when running as exe
-        try:
-            from auto_updater import startup_update_check
-            
-            # This will show update dialog if update is available
-            # If update is installed, the app will restart and never reach here
-            has_update, release_data = startup_update_check()
-            
-            # If we reach here, either no update or user declined update
-            
-        except Exception as e:
-            print(f"Update check failed: {e}")
-            # Continue with normal startup if update check fails
+    # if getattr(sys, 'frozen', False):  # Only check when running as exe
+    #     try:
+    #         from auto_updater import startup_update_check
+    #         
+    #         # This will show update dialog if update is available
+    #         # If update is installed, the app will restart and never reach here
+    #         has_update, release_data = startup_update_check()
+    #         
+    #         # If we reach here, either no update or user declined update
+    #         
+    #     except Exception as e:
+    #         print(f"Update check failed: {e}")
+    #         # Continue with normal startup if update check fails
     
     # Create main application window
     root = tk.Tk()

@@ -14,10 +14,10 @@ def create_github_release():
     # Configuration
     repo_owner = "zerocool5878"
     repo_name = "Journey-Level-Exam-Generator"
-    version = "v1.0.7"
+    version = "v1.0.8"
     
     # Read release notes
-    release_notes_path = Path("RELEASE_NOTES_v1.0.7.md")
+    release_notes_path = Path("RELEASE_NOTES_v1.0.8.md")
     if not release_notes_path.exists():
         print(f"❌ Release notes file not found: {release_notes_path}")
         return False
@@ -80,7 +80,7 @@ def create_github_release():
                 }
                 upload_params = {
                     'name': 'Journey-Level-Exam-Generator.exe',
-                    'label': 'Journey-Level Exam Generator v1.0.7 Executable'
+                    'label': 'Journey-Level Exam Generator v1.0.8 Executable'
                 }
                 
                 upload_response = requests.post(

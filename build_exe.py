@@ -42,13 +42,23 @@ def main():
                 print(f"⚠️  Warning: Could not fully clean {dir_name}: {e}")
                 print("   Continuing with build...")
     
-    # PyInstaller command with proper options
-    cmd = [
-        sys.executable, "-m", "PyInstaller",
-        "--onefile",                    # Single executable
-        "--windowed",                   # No console window
-        "--icon=lightning_icon.ico",    # Use our custom icon
-        "--name=Journey-Level-Exam-Generator",  # Executable name
+    # Use spec file if it exists, otherwise use command-line args
+    spec_file = "Journey-Level-Exam-Generator.spec"
+    if os.path.exists(spec_file):
+        print(f"📋 Using spec file: {spec_file}")
+        cmd = [
+            sys.executable, "-m", "PyInstaller",
+            "--noconfirm",  # Overwrite without asking
+            spec_file
+        ]
+    else:
+        # PyInstaller command with proper options
+        cmd = [
+            sys.executable, "-m", "PyInstaller",
+            "--onefile",                    # Single executable
+            "--windowed",                   # No console window
+            "--icon=lightning_icon.ico",    # Use our custom icon
+            "--name=Journey-Level-Exam-Generator",  # Executable name
         "--add-data=lightning_icon.ico;.",      # Include icon in bundle
         "--add-data=images;images",             # Include images directory
         
@@ -124,12 +134,12 @@ def main():
         "--hidden-import=dateutil.parser",
         
         # Critical: Don't compress tkinter DLLs - can break themes/styling
-        "--noupx",
-        
-        # Note: --clean removed due to Windows file locking issues
-        # Clean manually if needed before running
-        "test_generator.py"
-    ]
+            "--noupx",
+            
+            # Note: --clean removed due to Windows file locking issues
+            # Clean manually if needed before running
+            "test_generator.py"
+        ]
     
     print("Running PyInstaller...")
     result = subprocess.run(cmd, capture_output=True, text=True)
