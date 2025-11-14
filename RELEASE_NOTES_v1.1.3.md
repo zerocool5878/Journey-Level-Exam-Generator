@@ -36,19 +36,15 @@ When an update is available:
 
 ### 🔧 Installation
 
-**Option 1: Folder Distribution (Recommended)**
-1. Extract the entire ZIP file to your desired location
-2. Run `Journey-Level-Exam-Generator.exe` from the extracted folder
-3. **Do not move the .exe file separately** - it needs the `_internal` folder
-
-**Option 2: Run from Current Location**
-1. Keep all files together in the same folder
-2. The application needs `Journey-Level-Exam-Generator.exe` and `_internal` folder in the same directory
+**Single-File Executable**
+1. Extract `Journey-Level-Exam-Generator.exe` from the ZIP file
+2. Place it in your desired location
+3. Double-click to run - no installation required!
 
 ### ⚠️ Important Notes
 
-- This is a **folder-based distribution** (onedir mode)
-- All files must stay together - the `.exe` and `_internal` folder are required
+- This is a **single-file executable** - no additional files needed
+- **First run may take a few seconds** as the app extracts dependencies
 - First-time users: Windows Defender may scan the application on first run
 - Updates preserve all your data (questions, settings, custom images)
 

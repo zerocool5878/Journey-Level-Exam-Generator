@@ -66,22 +66,23 @@ def build_application():
     if not run_command(cmd, "PyInstaller build"):
         return False
     
-    # Verify build output
-    exe_path = Path("dist/Journey-Level-Exam-Generator/Journey-Level-Exam-Generator.exe")
+    # Verify build output (single-file mode)
+    exe_path = Path("dist/Journey-Level-Exam-Generator.exe")
     if not exe_path.exists():
         print("ERROR: Built executable not found!")
         return False
     
-    print(f"✓ Executable built: {exe_path}")
+    exe_size_mb = exe_path.stat().st_size / (1024 * 1024)
+    print(f"✓ Executable built: {exe_path} ({exe_size_mb:.1f} MB)")
     return True
 
 def create_zip_package():
-    """Create ZIP package of the onedir distribution"""
+    """Create ZIP package with single-file EXE"""
     print_step("Creating ZIP Package")
     
-    dist_folder = Path("dist/Journey-Level-Exam-Generator")
-    if not dist_folder.exists():
-        print("ERROR: Distribution folder not found!")
+    exe_file = Path("dist/Journey-Level-Exam-Generator.exe")
+    if not exe_file.exists():
+        print("ERROR: Executable file not found!")
         return None
     
     # Create README for the package
@@ -89,20 +90,20 @@ def create_zip_package():
 
 ## Installation
 
-1. **Extract All Files**: Extract this entire ZIP file to your desired location
+1. **Extract the EXE**: Extract the executable from this ZIP file to your desired location
    - Right-click the ZIP file
    - Select "Extract All..."
    - Choose your destination folder
 
 2. **Run the Application**: 
-   - Open the extracted folder
+   - Navigate to the extracted location
    - Double-click `Journey-Level-Exam-Generator.exe`
 
 ## Important Notes
 
-- **Keep files together**: The `.exe` and `_internal` folder must stay in the same directory
-- **Do not move the .exe separately**: The application needs all files in the folder
+- **Single file**: This is a standalone executable - no additional files needed
 - **First run**: Windows Defender may scan the application - this is normal
+- **Startup time**: First launch may take a few seconds as the app extracts dependencies
 
 ## Updating
 
@@ -121,37 +122,35 @@ def create_zip_package():
 ## Troubleshooting
 
 If the application doesn't start:
-1. Make sure all files from the ZIP are extracted
+1. Make sure the file is extracted from the ZIP
 2. Try running as Administrator (right-click → Run as administrator)
 3. Check Windows Defender hasn't quarantined the file
 
 ## Data Location
 
-Your exam data is stored in:
-- Questions: Same folder as the application (4 database files)
+Your exam data is stored in the same folder as the executable:
+- Questions: 4 database files (.db)
 - Custom images: `images` subfolder (created automatically)
 - Settings: `app_settings.json` (created automatically)
 
 For support, visit: https://github.com/zerocool5878/Journey-Level-Exam-Generator
 """
     
-    readme_path = dist_folder / "README.txt"
+    readme_path = Path("dist/README.txt")
     with open(readme_path, 'w', encoding='utf-8') as f:
         f.write(readme_content)
     print(f"✓ Created: {readme_path}")
     
-    # Create ZIP file
+    # Create ZIP file with just the EXE and README
     zip_name = f"Journey-Level-Exam-Generator-v{VERSION}-Windows.zip"
     zip_path = Path("dist") / zip_name
     
     print(f"Creating ZIP: {zip_path}")
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files in os.walk(dist_folder):
-            for file in files:
-                file_path = Path(root) / file
-                arcname = file_path.relative_to(dist_folder.parent)
-                zipf.write(file_path, arcname)
-                print(f"  Added: {arcname}")
+        zipf.write(exe_file, exe_file.name)
+        print(f"  Added: {exe_file.name}")
+        zipf.write(readme_path, readme_path.name)
+        print(f"  Added: {readme_path.name}")
     
     zip_size_mb = zip_path.stat().st_size / (1024 * 1024)
     print(f"\n✓ ZIP created: {zip_path} ({zip_size_mb:.1f} MB)")
